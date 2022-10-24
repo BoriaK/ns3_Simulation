@@ -105,7 +105,7 @@ int main (int argc, char *argv[])
   // p2p1.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue ("1p"));
 
   PointToPointHelper p2p2;  // the link between router and Reciever
-  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("5Kbps"));
+  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("10Kbps"));
   p2p2.SetChannelAttribute ("Delay", StringValue ("10ms"));
   // min value for NetDevice buffer is 1p. we set it in order to observe Traffic Controll effects only.
   p2p2.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue ("1p"));
@@ -119,7 +119,9 @@ int main (int argc, char *argv[])
   internet.InstallAll ();
 
   TrafficControlHelper tch;
-  tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("5p"));
+  // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("5p"));
+  // tch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue ("5p"));
+tch.SetRootQueueDisc ("ns3::DT1_FifoQueueDisc", "MaxSize", StringValue ("5p"));
   QueueDiscContainer qdiscs = tch.Install (dev1);
 
   // Ptr<QueueDisc> q = qdiscs.Get (1); // original code - doesn't show values
