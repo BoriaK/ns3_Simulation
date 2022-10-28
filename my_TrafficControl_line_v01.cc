@@ -120,8 +120,8 @@ int main (int argc, char *argv[])
 
   TrafficControlHelper tch;
   // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("5p"));
-  // tch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue ("5p"));
-tch.SetRootQueueDisc ("ns3::DT1_FifoQueueDisc", "MaxSize", StringValue ("5p"));
+  // tch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue ("10p"));
+  tch.SetRootQueueDisc ("ns3::DT1_FifoQueueDisc", "MaxSize", StringValue ("10p"));
   QueueDiscContainer qdiscs = tch.Install (dev1);
 
   // Ptr<QueueDisc> q = qdiscs.Get (1); // original code - doesn't show values
