@@ -58,7 +58,22 @@ NS_LOG_COMPONENT_DEFINE ("Traffic_Control_Example_Incast_Topology_v01");
 void
 TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
 {
-  std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  std::cout << "TcPacketsInQueue " << newValue << std::endl;
+}
+
+void
+QueueThresholdHighTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
+{
+  std::cout << "HighPriorityQueueThreshold " << newValue << " packets " << std::endl;
+  // std::cout << "QueueThreshold " << newValue << std::endl;
+}
+
+void
+QueueThresholdLowTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
+{
+  std::cout << "LowPriorityQueueThreshold " << newValue << " packets " << std::endl;
+  // std::cout << "QueueThreshold " << newValue << std::endl;
 }
 
 void
@@ -75,22 +90,58 @@ SojournTimeTrace (Time sojournTime)
 
 int main (int argc, char *argv[])
 {
-  // Users may find it convenient to turn on explicit debugging
-  // for selected modules; the below lines suggest how to do this
-  //  LogComponentEnable("TcpL4Protocol", LOG_LEVEL_ALL);
-  //  LogComponentEnable("TcpSocketImpl", LOG_LEVEL_ALL);
-  LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
-  LogComponentEnable("PacketSink", LOG_LEVEL_INFO);
-  //  LogComponentEnable("TcpLargeTransfer", LOG_LEVEL_ALL);
-
-  double simulationTime = 40; //seconds
-  std::string transportProt = "Udp";
+  // Set up some default values for the simulation.
+  double simulationTime = 50; //seconds
+  std::string applicationType = "standardClient"; // "OnOff" or "standardClient"
+  std::string transportProt = "Udp"; // "Udp" or "Tcp"
   std::string socketType;
-  
+  std::string queue_capacity;
+
   CommandLine cmd (__FILE__);
   cmd.AddValue("Simulation Time", "The total time for the simulation to run", simulationTime);
+  cmd.AddValue ("applicationType", "Application type to use to send data: OnOff, standardClient", applicationType);
   cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, Udp", transportProt);
   cmd.Parse (argc, argv);
+
+  // Application type dependent parameters
+  if (applicationType.compare("standardClient") == 0)
+    {
+      queue_capacity = "20p"; // B, the total space on the buffer
+    }
+  else if (applicationType.compare("OnOff") == 0)
+    {
+      queue_capacity = "100p"; // B, the total space on the buffer [packets]
+    }
+  // client type dependant parameters:
+  if (transportProt.compare ("Tcp") == 0)
+    {
+      socketType = "ns3::TcpSocketFactory";
+    }
+  else
+    {
+      socketType = "ns3::UdpSocketFactory";
+    }
+  
+  // Application and Client type dependent parameters
+  // select the desired components to output data
+  if (applicationType.compare("standardClient") == 0 && transportProt.compare ("Tcp") == 0)
+  {
+    LogComponentEnable ("TcpClient", LOG_LEVEL_INFO);
+  }
+  else if (applicationType.compare("standardClient") == 0 && transportProt.compare ("Udp") == 0)
+  {
+    LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
+  }
+  else if (applicationType.compare("OnOff") == 0 && transportProt.compare ("Tcp") == 0)
+  {
+    LogComponentEnable("TcpSocketImpl", LOG_LEVEL_INFO);
+  }
+  else if (applicationType.compare("OnOff") == 0 && transportProt.compare ("Udp") == 0)
+  {
+    LogComponentEnable("UdpSocketImpl", LOG_LEVEL_INFO);
+  }
+  
+  LogComponentEnable("PacketSink", LOG_LEVEL_INFO);
 
   // Here, we will explicitly create three nodes.  The first container contains
   // nodes 0 and 1 from the diagram above, and the second one contains nodes
@@ -114,33 +165,41 @@ int main (int argc, char *argv[])
   // attributes on the network interfaces and channels we are about to install.
   
   // Create the point-to-point link helpers
-  PointToPointHelper p2p1;  // the link between each sender to Router
-  p2p1.SetDeviceAttribute  ("DataRate", StringValue ("10Mbps"));
-  p2p1.SetChannelAttribute ("Delay", StringValue ("5ms"));
+  PointToPointHelper p2p1_l;  // the link between each sender to Router
+  p2p1_l.SetDeviceAttribute  ("DataRate", StringValue ("10Mbps"));
+  p2p1_l.SetChannelAttribute ("Delay", StringValue ("5ms"));
+
+  PointToPointHelper p2p1_h;  // the link between each sender to Router
+  p2p1_h.SetDeviceAttribute  ("DataRate", StringValue ("10Mbps"));
+  p2p1_h.SetChannelAttribute ("Delay", StringValue ("5ms"));
 
   PointToPointHelper p2p2;  // the link between router and Reciever
-  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("10Kbps"));
+  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("1Mbps"));
   p2p2.SetChannelAttribute ("Delay", StringValue ("10ms"));
-  // min value for NetDevice buffer is 1p. we set it in order to observe Traffic Controll effects only.
+  // minimal value for NetDevice buffer is 1p. we set it in order to observe Traffic Controll effects only.
   p2p2.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue ("1p"));
 
 
   // And then install devices and channels connecting our topology.
-  NetDeviceContainer sender1 = p2p1.Install (clientNodes.Get(0), clientNodes.Get(1));
-  NetDeviceContainer sender2 = p2p1.Install (clientNodes.Get(2), clientNodes.Get(1));
+  NetDeviceContainer sender1 = p2p1_l.Install (clientNodes.Get(0), clientNodes.Get(1));
+  NetDeviceContainer sender2 = p2p1_h.Install (clientNodes.Get(2), clientNodes.Get(1));
   // NetDeviceContainer sender3 = p2p1.Install (senders.Get(3), senders.Get(1));
   NetDeviceContainer reciever = p2p2.Install (serverNodes);
 
 
   TrafficControlHelper tch;
   // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("10p"));
-  tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", "MaxSize", StringValue ("10p"));
+  // tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", "MaxSize", StringValue ("10p"));
+  tch.SetRootQueueDisc ("ns3::DT2_FifoQueueDisc", "MaxSize", StringValue ("100p"));
+  
   QueueDiscContainer qdiscs = tch.Install (reciever);
 
   // Ptr<QueueDisc> q = qdiscs.Get (1); // original code - doesn't show values
   Ptr<QueueDisc> q = qdiscs.Get (0); // look at the router queue - shows actual values
   // The Next Line Displayes "PacketsInQueue" statistic at the Traffic Controll Layer
-  // q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+  q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+  q->TraceConnectWithoutContext("EnqueueingThreshold_High", MakeCallback (&QueueThresholdHighTrace)); // ### ADDED BY ME #####
+  q->TraceConnectWithoutContext("EnqueueingThreshold_Low", MakeCallback (&QueueThresholdLowTrace)); // ### ADDED BY ME #####
   Config::ConnectWithoutContextFailSafe ("/NodeList/1/$ns3::TrafficControlLayer/RootQueueDiscList/0/SojournTime",
                                  MakeCallback (&SojournTimeTrace));
 
@@ -177,34 +236,70 @@ int main (int argc, char *argv[])
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   uint16_t servPort = 50000;
-
-  // Create a packet sink to receive these packets on n2...
-  PacketSinkHelper sink ("ns3::UdpSocketFactory",
-                         InetSocketAddress (Ipv4Address::GetAny (), servPort));
-
+  Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), servPort));
+  // Create a packet sink to receive these packets on n2
+  PacketSinkHelper sink (socketType, sinkLocalAddress);                       
   ApplicationContainer sinkApp = sink.Install (serverNodes.Get (1));
   sinkApp.Start (Seconds (0.0));
-  sinkApp.Stop (Seconds (simulationTime));
+  sinkApp.Stop (Seconds (simulationTime + 0.1));
+
+  uint32_t longPayloadSize = 1024;
+  uint32_t shortPayloadSize = 16;
+  // Config::SetDefault ("ns3::" + transportProt + "Socket::SegmentSize", UintegerValue (payloadSize));
 
   // Install application on the senders
   //get the address of the reciever node NOT THE ROUTER!!!
-  
-  UdpClientHelper udpClientLong (routerInterface.GetAddress(1), servPort);
-  udpClientLong.SetAttribute ("Interval", TimeValue (Seconds (0.1)));
-  udpClientLong.SetAttribute ("PacketSize", UintegerValue (1024));
-  UdpClientHelper udpClientShort (routerInterface.GetAddress(1), servPort);
-  udpClientShort.SetAttribute ("Interval", TimeValue (Seconds (0.1)));
-  udpClientShort.SetAttribute ("PacketSize", UintegerValue (16));
+  if (applicationType.compare("standardClient") == 0)
+  {
+    UdpClientHelper udpClientShort (routerInterface.GetAddress(1), servPort);
+    udpClientShort.SetAttribute ("Interval", TimeValue (Seconds (0.1)));
+    udpClientShort.SetAttribute ("PacketSize", UintegerValue (shortPayloadSize));
+    UdpClientHelper udpClientLong (routerInterface.GetAddress(1), servPort);
+    udpClientLong.SetAttribute ("Interval", TimeValue (Seconds (0.1)));
+    udpClientLong.SetAttribute ("PacketSize", UintegerValue (longPayloadSize));
 
-  ApplicationContainer sourceApps1 = udpClientLong.Install (clientNodes.Get (0));
-  sourceApps1.Start (Seconds (1.0));
-  sourceApps1.Stop (Seconds(2.0));
-  ApplicationContainer sourceApps2 = udpClientShort.Install (clientNodes.Get (2));
-  sourceApps2.Start (Seconds (1.0));
-  sourceApps2.Stop (Seconds(2.0));
-  // ApplicationContainer sourceApps3 = udpClient.Install (clientNodes.Get (3));
-  // sourceApps2.Start (Seconds (1.0));
-  // sourceApps2.Stop (Seconds(2.0));
+    ApplicationContainer sourceApps1 = udpClientShort.Install (clientNodes.Get (0));
+    sourceApps1.Start (Seconds (1.0));
+    sourceApps1.Stop (Seconds(3.0));
+    ApplicationContainer sourceApps2 = udpClientLong.Install (clientNodes.Get (2));
+    sourceApps2.Start (Seconds (1.0));
+    sourceApps2.Stop (Seconds(3.0));
+    // ApplicationContainer sourceApps3 = udpClientLong.Install (clientNodes.Get (3));
+    // sourceApps3.Start (Seconds (1.0));
+    // sourceApps3.Stop (Seconds(3.0));
+  }
+  else if (applicationType.compare("OnOff") == 0)
+  {
+   // Create the OnOff applications to send TCP/UDP to the server
+    InetSocketAddress socketAddressUp = InetSocketAddress (routerInterface.GetAddress(1), servPort);
+    
+    OnOffHelper clientShortHelper (socketType, Address ());
+    OnOffHelper clientLongHelper (socketType, Address ());
+    
+    clientShortHelper.SetAttribute ("Remote", AddressValue (socketAddressUp));
+    clientShortHelper.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+    clientShortHelper.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    clientShortHelper.SetAttribute ("PacketSize", UintegerValue (shortPayloadSize));
+    clientShortHelper.SetAttribute ("DataRate", StringValue ("1Mb/s"));
+
+    clientLongHelper.SetAttribute ("Remote", AddressValue (socketAddressUp));
+    clientLongHelper.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+    clientLongHelper.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    clientLongHelper.SetAttribute ("PacketSize", UintegerValue (longPayloadSize));
+    clientLongHelper.SetAttribute ("DataRate", StringValue ("1Mb/s"));
+    
+  
+    ApplicationContainer sourceApps1 = clientShortHelper.Install (clientNodes.Get (0));
+    sourceApps1.Start (Seconds (1.0));
+    sourceApps1.Stop (Seconds(3.0));
+    ApplicationContainer sourceApps2 = clientLongHelper.Install (clientNodes.Get (2));
+    sourceApps2.Start (Seconds (1.0));
+    sourceApps2.Stop (Seconds(3.0));
+    // ApplicationContainer sourceApps3 = clientLongHelper.Install (clientNodes.Get (3));
+    // sourceApps3.Start (Seconds (1.0));
+    // sourceApps3.Stop (Seconds(3.0));
+  }
+
 
   //Ask for ASCII and pcap traces of network traffic
   // AsciiTraceHelper ascii;
