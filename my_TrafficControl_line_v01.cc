@@ -157,7 +157,7 @@ int main (int argc, char *argv[])
   // p2p1.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue ("1p"));
 
   PointToPointHelper p2p2;  // the link between router and Reciever
-  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("10Kbps"));
+  p2p2.SetDeviceAttribute  ("DataRate", StringValue ("100Kbps"));
   p2p2.SetChannelAttribute ("Delay", StringValue ("10ms"));
   // min value for NetDevice buffer is 1p. we set it in order to observe Traffic Controll effects only.
   p2p2.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue ("1p"));

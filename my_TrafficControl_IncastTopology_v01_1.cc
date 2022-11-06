@@ -39,6 +39,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <numeric>
 
 #include "ns3/core-module.h"
 #include "ns3/applications-module.h"
@@ -92,7 +93,7 @@ int main (int argc, char *argv[])
 {
   // Set up some default values for the simulation.
   double simulationTime = 50; //seconds
-  std::string applicationType = "standardClient"; // "OnOff" or "standardClient"
+  std::string applicationType = "OnOff"; // "OnOff" or "standardClient"
   std::string transportProt = "Udp"; // "Udp" or "Tcp"
   std::string socketType;
   std::string queue_capacity;
@@ -242,7 +243,7 @@ int main (int argc, char *argv[])
   ApplicationContainer sinkApp = sink.Install (serverNodes.Get (1));
   sinkApp.Start (Seconds (0.0));
   sinkApp.Stop (Seconds (simulationTime + 0.1));
-
+  
   uint32_t longPayloadSize = 1024;
   uint32_t shortPayloadSize = 16;
   // Config::SetDefault ("ns3::" + transportProt + "Socket::SegmentSize", UintegerValue (payloadSize));
@@ -317,14 +318,34 @@ int main (int argc, char *argv[])
   Simulator::Stop (Seconds (simulationTime + 10));
   Simulator::Run ();
 
+  // monitor->SerializeToXmlFile("myTrafficControl_IncastTopology_v01_1.xml", true, true);
+
   Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon.GetClassifier ());
   std::map<FlowId, FlowMonitor::FlowStats> stats = monitor->GetFlowStats ();
   std::cout << std::endl << "*** Flow monitor statistics ***" << std::endl;
-  std::cout << "  Tx Packets/Bytes:   " << stats[1].txPackets
-            << " / " << stats[1].txBytes << std::endl;
-  std::cout << "  Offered Load: " << stats[1].txBytes * 8.0 / (stats[1].timeLastTxPacket.GetSeconds () - stats[1].timeFirstTxPacket.GetSeconds ()) / 1000000 << " Mbps" << std::endl;
-  std::cout << "  Rx Packets/Bytes:   " << stats[1].rxPackets
-            << " / " << stats[1].rxBytes << std::endl;
+// a loop to sum the Tx/Rx Packets/Bytes from all nodes
+  uint32_t txPackets = 0; 
+  uint64_t txBytes = 0;
+  uint32_t rxPackets = 0; 
+  uint64_t rxBytes = 0;
+  for (size_t i = 1; i <= stats.size(); i++)
+  {
+    txPackets = txPackets + stats[i].txPackets;
+    txBytes = txBytes + stats[i].txBytes;
+    rxPackets = rxPackets + stats[i].rxPackets;
+    rxBytes = rxBytes + stats[i].rxBytes;
+  }
+
+  std::cout << "  Tx Packets/Bytes:   " << txPackets
+            << " / " << txBytes << std::endl;
+  // std::cout << "  Tx Packets/Bytes:   " << stats[1].txPackets
+  //           << " / " << stats[1].txBytes << std::endl;
+  // std::cout << "  Offered Load: " << stats[1].txBytes * 8.0 / (stats[1].timeLastTxPacket.GetSeconds () - stats[1].timeFirstTxPacket.GetSeconds ()) / 1000000 << " Mbps" << std::endl;
+  std::cout << "  Rx Packets/Bytes:   " << rxPackets
+            << " / " << rxBytes << std::endl;
+  // std::cout << "  Rx Packets/Bytes:   " << stats[1].rxPackets
+  //           << " / " << stats[1].rxBytes << std::endl;
+
   uint32_t packetsDroppedByQueueDisc = 0;
   uint64_t bytesDroppedByQueueDisc = 0;
   if (stats[1].packetsDropped.size () > Ipv4FlowProbe::DROP_QUEUE_DISC)
@@ -332,6 +353,12 @@ int main (int argc, char *argv[])
       packetsDroppedByQueueDisc = stats[1].packetsDropped[Ipv4FlowProbe::DROP_QUEUE_DISC];
       bytesDroppedByQueueDisc = stats[1].bytesDropped[Ipv4FlowProbe::DROP_QUEUE_DISC];
     }
+  // add packets/bytes count from the other node
+  if (stats[2].packetsDropped.size () > Ipv4FlowProbe::DROP_QUEUE_DISC)
+    {
+      packetsDroppedByQueueDisc = packetsDroppedByQueueDisc + stats[2].packetsDropped[Ipv4FlowProbe::DROP_QUEUE_DISC];
+      bytesDroppedByQueueDisc = bytesDroppedByQueueDisc + stats[2].bytesDropped[Ipv4FlowProbe::DROP_QUEUE_DISC];
+    }  
   std::cout << "  Packets/Bytes Dropped by Queue Disc:   " << packetsDroppedByQueueDisc
             << " / " << bytesDroppedByQueueDisc << std::endl;
   uint32_t packetsDroppedByNetDevice = 0;
@@ -341,11 +368,17 @@ int main (int argc, char *argv[])
       packetsDroppedByNetDevice = stats[1].packetsDropped[Ipv4FlowProbe::DROP_QUEUE];
       bytesDroppedByNetDevice = stats[1].bytesDropped[Ipv4FlowProbe::DROP_QUEUE];
     }
+  // add packets/bytes count from the other node  
+  if (stats[2].packetsDropped.size () > Ipv4FlowProbe::DROP_QUEUE)
+    {
+      packetsDroppedByNetDevice = packetsDroppedByNetDevice + stats[2].packetsDropped[Ipv4FlowProbe::DROP_QUEUE];
+      bytesDroppedByNetDevice = bytesDroppedByNetDevice + stats[2].bytesDropped[Ipv4FlowProbe::DROP_QUEUE];
+    }  
   std::cout << "  Packets/Bytes Dropped by NetDevice:   " << packetsDroppedByNetDevice
             << " / " << bytesDroppedByNetDevice << std::endl;
-  std::cout << "  Throughput: " << stats[1].rxBytes * 8.0 / (stats[1].timeLastRxPacket.GetSeconds () - stats[1].timeFirstRxPacket.GetSeconds ()) / 1000000 << " Mbps" << std::endl;
-  std::cout << "  Mean delay:   " << stats[1].delaySum.GetSeconds () / stats[1].rxPackets << std::endl;
-  std::cout << "  Mean jitter:   " << stats[1].jitterSum.GetSeconds () / (stats[1].rxPackets - 1) << std::endl;
+  // std::cout << "  Throughput: " << stats[1].rxBytes * 8.0 / (stats[1].timeLastRxPacket.GetSeconds () - stats[1].timeFirstRxPacket.GetSeconds ()) / 1000000 << " Mbps" << std::endl;
+  // std::cout << "  Mean delay:   " << stats[1].delaySum.GetSeconds () / stats[1].rxPackets << std::endl;
+  // std::cout << "  Mean jitter:   " << stats[1].jitterSum.GetSeconds () / (stats[1].rxPackets - 1) << std::endl;
   auto dscpVec = classifier->GetDscpCounts (1);
   for (auto p : dscpVec)
     {
