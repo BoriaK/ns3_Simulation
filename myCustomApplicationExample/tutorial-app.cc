@@ -84,85 +84,6 @@ TutorialApp::StopApplication (void)
     }
 }
 
-// // add custom Tag to each packet:
-// class MyTag : public Tag
-// {
-// public:
-//   /**
-//    * \brief Get the type ID.
-//    * \return the object TypeId
-//    */
-//   static TypeId GetTypeId (void);
-//   virtual TypeId GetInstanceTypeId (void) const;
-//   virtual uint32_t GetSerializedSize (void) const;
-//   virtual void Serialize (TagBuffer i) const;
-//   virtual void Deserialize (TagBuffer i);
-//   virtual void Print (std::ostream &os) const;
-
-//   // these are our accessors to our tag structure
-//   /**
-//    * Set the tag value
-//    * \param value The tag value.
-//    */
-//   void SetSimpleValue (uint8_t value);
-//   /**
-//    * Get the tag value
-//    * \return the tag value.
-//    */
-//   uint8_t GetSimpleValue (void) const;
-// private:
-//   uint8_t m_simpleValue;  //!< tag value
-// };
-
-// TypeId 
-// MyTag::GetTypeId (void)
-// {
-//   static TypeId tid = TypeId ("ns3::MyTag")
-//     .SetParent<Tag> ()
-//     .AddConstructor<MyTag> ()
-//     .AddAttribute ("SimpleValue",
-//                    "A simple value",
-//                    EmptyAttributeValue (),
-//                    MakeUintegerAccessor (&MyTag::GetSimpleValue),
-//                    MakeUintegerChecker<uint8_t> ())
-//   ;
-//   return tid;
-// }
-// TypeId 
-// MyTag::GetInstanceTypeId (void) const
-// {
-//   return GetTypeId ();
-// }
-// uint32_t 
-// MyTag::GetSerializedSize (void) const
-// {
-//   return 1;
-// }
-// void 
-// MyTag::Serialize (TagBuffer i) const
-// {
-//   i.WriteU8 (m_simpleValue);
-// }
-// void 
-// MyTag::Deserialize (TagBuffer i)
-// {
-//   m_simpleValue = i.ReadU8 ();
-// }
-// void 
-// MyTag::Print (std::ostream &os) const
-// {
-//   os << "v=" << (uint32_t)m_simpleValue;
-// }
-// void 
-// MyTag::SetSimpleValue (uint8_t value)
-// {
-//   m_simpleValue = value;
-// }
-// uint8_t 
-// MyTag::GetSimpleValue (void) const
-// {
-//   return m_simpleValue;
-// }
 
 void
 TutorialApp::SendPacket (void)
@@ -170,7 +91,18 @@ TutorialApp::SendPacket (void)
   Ptr<Packet> packet = Create<Packet> (m_packetSize);
   // create a tag.
   MyTag flowPrioTag;
-  flowPrioTag.SetSimpleValue (0x0);
+  // set Tag value to depend on the number of previously sent packets
+  // if m_packetsSent < Threshold: TagValue->0x0 (High Priority)
+  // if m_packetsSent >= Threshold: TagValue->0x1 (Low Priority)
+  
+  uint8_t Threshold = 10; // [packets], max number of packets per flow to be considered mouse flow
+
+  if (m_packetsSent < Threshold)
+  {
+    flowPrioTag.SetSimpleValue (0x0);
+  }
+  else 
+    flowPrioTag.SetSimpleValue (0x1);
 
   // store the tag in a packet.
   packet->AddPacketTag (flowPrioTag);
