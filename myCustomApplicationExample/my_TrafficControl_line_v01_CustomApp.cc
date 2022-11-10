@@ -41,10 +41,17 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/flow-monitor-module.h"
+#include "tutorial-app.h"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("TrafficControlExample_Line_v01");
+NS_LOG_COMPONENT_DEFINE ("TrafficControlExample_Line_v01_with_CustomApp");
+
+static void
+CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+{
+  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+}
 
 void
 TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
@@ -83,7 +90,7 @@ int main (int argc, char *argv[])
 { 
   // Set up some default values for the simulation.
   double simulationTime = 50; //seconds
-  std::string applicationType = "standardClient"; // "OnOff" or "standardClient"
+  std::string applicationType = "customApplication"; // "OnOff"/"standardClient"/"customApplication"
   std::string transportProt = "Udp";
   std::string socketType;
   std::string queue_capacity;
@@ -94,12 +101,16 @@ int main (int argc, char *argv[])
   cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, Udp", transportProt);
   cmd.Parse (argc, argv);
   
+  // Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
+  // Config::SetDefault ("ns3::UdpSocket::InitialCwnd", UintegerValue (1));
+  // Config::SetDefault ("ns3::TcpL4Protocol::RecoveryType", TypeIdValue (TypeId::LookupByName ("ns3::TcpClassicRecovery")));
+
   // Application type dependent parameters
   if (applicationType.compare("standardClient") == 0)
     {
       queue_capacity = "20p"; // B, the total space on the buffer
     }
-  else if (applicationType.compare("OnOff") == 0)
+  else if (applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0)
     {
       queue_capacity = "100p"; // B, the total space on the buffer [packets]
     }
@@ -123,11 +134,11 @@ int main (int argc, char *argv[])
   {
     LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
   }
-  else if (applicationType.compare("OnOff") == 0 && transportProt.compare ("Tcp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0)&& transportProt.compare ("Tcp") == 0)
   {
     LogComponentEnable("TcpSocketImpl", LOG_LEVEL_INFO);
   }
-  else if (applicationType.compare("OnOff") == 0 && transportProt.compare ("Udp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0) && transportProt.compare ("Udp") == 0)
   {
     LogComponentEnable("UdpSocketImpl", LOG_LEVEL_INFO);
   }
@@ -216,6 +227,7 @@ int main (int argc, char *argv[])
   sinkApp.Stop (Seconds (simulationTime + 0.1));
 
   uint32_t payloadSize = 1024;
+  uint32_t numOfPackets = 100;  // number of packets to send in one stream for custom application
   // Config::SetDefault ("ns3::" + transportProt + "Socket::SegmentSize", UintegerValue (payloadSize));
 
   if (applicationType.compare("standardClient") == 0)
@@ -242,7 +254,21 @@ int main (int argc, char *argv[])
     sourceApps.Start (Seconds (1.0));
     sourceApps.Stop (Seconds(3.0));
   }
-  
+    else if (applicationType.compare("customApplication") == 0)
+  {
+    // Create the Custom application to send TCP/UDP to the server
+    Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (n0n1.Get (0), UdpSocketFactory::GetTypeId ());
+    ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
+    
+    Ptr<TutorialApp> customApp = CreateObject<TutorialApp> ();
+    InetSocketAddress socketAddressUp = InetSocketAddress (ipInterfs.GetAddress(1), servPort);  // sink IpV4 Address
+    customApp->Setup (ns3UdpSocket, socketAddressUp, payloadSize, numOfPackets, DataRate ("1Mbps"));
+    n0n1.Get (0)->AddApplication (customApp);
+    customApp->SetStartTime (Seconds (1.0));
+    customApp->SetStopTime (Seconds(3.0));
+
+    // Create the OnOff applications to send TCP/UDP to the server
+  }
   FlowMonitorHelper flowmon;
   Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
