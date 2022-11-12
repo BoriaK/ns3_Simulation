@@ -42,6 +42,8 @@
 #include "ns3/traffic-control-module.h"
 #include "ns3/flow-monitor-module.h"
 #include "tutorial-app.h"
+#include "custome_onoff-application.h"
+
 
 using namespace ns3;
 
@@ -90,7 +92,7 @@ int main (int argc, char *argv[])
 { 
   // Set up some default values for the simulation.
   double simulationTime = 50; //seconds
-  std::string applicationType = "customApplication"; // "OnOff"/"standardClient"/"customApplication"
+  std::string applicationType = "customeOnOff"; // "standardClient"/"OnOff"/"customApplication"/"customeOnOff"
   std::string transportProt = "Udp";
   std::string socketType;
   std::string queue_capacity;
@@ -110,7 +112,7 @@ int main (int argc, char *argv[])
     {
       queue_capacity = "20p"; // B, the total space on the buffer
     }
-  else if (applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0)
+  else if (applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0)
     {
       queue_capacity = "100p"; // B, the total space on the buffer [packets]
     }
@@ -134,11 +136,11 @@ int main (int argc, char *argv[])
   {
     LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
   }
-  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0)&& transportProt.compare ("Tcp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0)&& transportProt.compare ("Tcp") == 0)
   {
     LogComponentEnable("TcpSocketImpl", LOG_LEVEL_INFO);
   }
-  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customApplication") == 0) && transportProt.compare ("Udp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0) && transportProt.compare ("Udp") == 0)
   {
     LogComponentEnable("UdpSocketImpl", LOG_LEVEL_INFO);
   }
@@ -254,7 +256,27 @@ int main (int argc, char *argv[])
     sourceApps.Start (Seconds (1.0));
     sourceApps.Stop (Seconds(3.0));
   }
-    else if (applicationType.compare("customApplication") == 0)
+  
+  else if (applicationType.compare("customeOnOff") == 0)
+  {
+    // Create the Custom application to send TCP/UDP to the server
+    Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (n0n1.Get (0), UdpSocketFactory::GetTypeId ());
+    ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
+    
+    InetSocketAddress socketAddressUp = InetSocketAddress (ipInterfs.GetAddress(1), servPort);
+    Ptr<CustomeOnOffApplication> customOnOffApp = CreateObject<CustomeOnOffApplication> ();
+    customOnOffApp->Setup(ns3UdpSocket);
+    customOnOffApp->SetAttribute("Remote", AddressValue (socketAddressUp));
+    customOnOffApp->SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+    customOnOffApp->SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    customOnOffApp->SetAttribute("PacketSize", UintegerValue (payloadSize));
+    customOnOffApp->SetAttribute("DataRate", StringValue ("2Mb/s"));
+    customOnOffApp->SetStartTime (Seconds (1.0));
+    customOnOffApp->SetStopTime (Seconds(3.0));
+    n0n1.Get (0)->AddApplication (customOnOffApp);
+  }
+  
+  else if (applicationType.compare("customApplication") == 0)
   {
     // Create the Custom application to send TCP/UDP to the server
     Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (n0n1.Get (0), UdpSocketFactory::GetTypeId ());
@@ -266,9 +288,8 @@ int main (int argc, char *argv[])
     n0n1.Get (0)->AddApplication (customApp);
     customApp->SetStartTime (Seconds (1.0));
     customApp->SetStopTime (Seconds(3.0));
-
-    // Create the OnOff applications to send TCP/UDP to the server
   }
+  
   FlowMonitorHelper flowmon;
   Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 

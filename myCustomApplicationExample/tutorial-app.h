@@ -54,6 +54,7 @@ private:
   virtual void StartApplication (void);
   virtual void StopApplication (void);
 
+
   /// Schedule a new transmission.
   void ScheduleTx (void);
   /// Send a packet.
