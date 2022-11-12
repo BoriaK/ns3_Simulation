@@ -21,7 +21,7 @@
 #ifndef DT2_FIFO_QUEUE_DISC_H
 #define DT2_FIFO_QUEUE_DISC_H
 
-#include "ns3/queue-disc.h"
+#include "queue-disc.h"
 
 namespace ns3 {
 
@@ -31,6 +31,7 @@ namespace ns3 {
  * Simple queue disc implementing the FIFO (First-In First-Out) policy.
  *
  */
+// class DT2_FifoQueueDisc : public CustomeQueueDisc {
 class DT2_FifoQueueDisc : public QueueDisc {
 public:
   /**
