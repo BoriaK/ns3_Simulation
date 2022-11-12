@@ -306,6 +306,14 @@ TypeId QueueDisc::GetTypeId (void)
                      "Number of packets currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nPackets),
                      "ns3::TracedValueCallback::Uint32")
+    // .AddTraceSource ("HighPriorityPacketsInQueue",
+    //                  "Number of packets currently stored in the queue disc",
+    //                  MakeTraceSourceAccessor (&QueueDisc::m_nPackets_h),
+    //                  "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########
+    // .AddTraceSource ("LowPriorityPacketsInQueue",
+    //                  "Number of packets currently stored in the queue disc",
+    //                  MakeTraceSourceAccessor (&QueueDisc::m_nPackets_l),
+    //                  "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########                   
     .AddTraceSource ("BytesInQueue",
                      "Number of bytes currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nBytes),
@@ -328,6 +336,8 @@ TypeId QueueDisc::GetTypeId (void)
 
 QueueDisc::QueueDisc (QueueDiscSizePolicy policy)
   :  m_nPackets (0),
+    //  m_nPackets_h(0),
+    //  m_nPackets_l(0),
      m_nBytes (0),
      m_maxSize (QueueSize ("1p")),         // to avoid that setting the mode at construction time is ignored
      m_p_threshold_h (m_maxSize.GetValue ()),  // initilize high priority threshold to be max queue size, not sure it's nessesarry!!!!// Added by me
@@ -443,7 +453,21 @@ QueueDisc::GetStats (void)
 
   return m_stats;
 }
+//////////////////////////////////////// Added by me/////////////////////
+// uint32_t
+// QueueDisc::GetNPacketsHigh () const
+// {
+//   NS_LOG_FUNCTION (this);
+//   return m_nPackets_h;
+// }
 
+// uint32_t
+// QueueDisc::GetNPacketsLow () const
+// {
+//   NS_LOG_FUNCTION (this);
+//   return m_nPackets_l;
+// }
+////////////////////////////////////////////////////////////////////////////////
 uint32_t
 QueueDisc::GetNPackets () const
 {
@@ -543,7 +567,6 @@ QueueDisc::GetCurrentSize (void)
   NS_ABORT_MSG ("Unknown queue size unit");
 }
 
-// int alpha = 1; // high priority queue alpha parameter for queueing threshold
 
 QueueSize
 QueueDisc::GetQueueThreshold (int alpha, int alpha_l, int alpha_h)  // added by me!!!!!!!!!!!

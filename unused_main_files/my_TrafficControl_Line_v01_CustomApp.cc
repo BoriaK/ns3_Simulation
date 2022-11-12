@@ -62,6 +62,20 @@ TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
   std::cout << "TcPacketsInQueue " << newValue << std::endl;
 }
 
+// void
+// TcHighPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
+// {
+//   // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+//   std::cout << "TcHighPriorityPacketsInQueue " << newValue << std::endl;
+// }
+
+// void
+// TcLowPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
+// {
+//   // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+//   std::cout << "TcLowPriorityPacketsInQueue " << newValue << std::endl;
+// }
+
 void
 QueueThresholdHighTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
 {
@@ -187,7 +201,6 @@ int main (int argc, char *argv[])
   // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("5p"));
   // tch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue ("20p"));
   // tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", "MaxSize", StringValue ("20p"));
-  // tch.SetRootQueueDisc ("ns3::DT1_FifoQueueDisc", "MaxSize", StringValue ("20p"));
   tch.SetRootQueueDisc ("ns3::DT2_FifoQueueDisc", "MaxSize", StringValue (queue_capacity));
                                                    
   QueueDiscContainer qdiscs = tch.Install (dev1);
@@ -196,6 +209,8 @@ int main (int argc, char *argv[])
   Ptr<QueueDisc> q = qdiscs.Get (0); // look at the router queue - shows actual values
   // The Next Line Displayes "PacketsInQueue" statistic at the Traffic Controll Layer
   q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+  // q->TraceConnectWithoutContext ("HighPriorityPacketsInQueue", MakeCallback (&TcHighPriorityPacketsInQueueTrace));
+  // q->TraceConnectWithoutContext ("LowPriorityPacketsInQueue", MakeCallback (&TcLowPriorityPacketsInQueueTrace));
   q->TraceConnectWithoutContext("EnqueueingThreshold_High", MakeCallback (&QueueThresholdHighTrace)); // ### ADDED BY ME #####
   q->TraceConnectWithoutContext("EnqueueingThreshold_Low", MakeCallback (&QueueThresholdLowTrace)); // ### ADDED BY ME #####
   Config::ConnectWithoutContextFailSafe ("/NodeList/1/$ns3::TrafficControlLayer/RootQueueDiscList/0/SojournTime",
@@ -207,7 +222,6 @@ int main (int argc, char *argv[])
   Ptr<Queue<Packet> > queue = ptpnd->GetQueue ();
   // The Next Line Displayes "PacketsInQueue" statistic at the NetDevice Layer
   // queue->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&DevicePacketsInQueueTrace));
-
 
 
   // Later, we add IP addresses.
@@ -230,7 +244,6 @@ int main (int argc, char *argv[])
 
   uint32_t payloadSize = 1024;
   uint32_t numOfPackets = 100;  // number of packets to send in one stream for custom application
-  // Config::SetDefault ("ns3::" + transportProt + "Socket::SegmentSize", UintegerValue (payloadSize));
 
   if (applicationType.compare("standardClient") == 0)
   {

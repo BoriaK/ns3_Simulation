@@ -292,6 +292,26 @@ public:
   QueueDisc (const QueueDisc &) = delete;
   QueueDisc & operator = (const QueueDisc &) = delete;
 
+//////////////Added by me///////////////////
+
+  // /**
+  //  * \brief Get the number of high priority packets stored by the queue disc
+  //  * \return the number of packets stored by the queue disc.
+  //  *
+  //  * The requeued packet, if any, is counted.
+  //  */
+  // uint32_t GetNPacketsHigh (void) const;
+
+  // /**
+  //  * \brief Get the number of high priority packets stored by the queue disc
+  //  * \return the number of packets stored by the queue disc.
+  //  *
+  //  * The requeued packet, if any, is counted.
+  //  */
+  // uint32_t GetNPacketsLow (void) const;
+
+/////////////////////////////////////////////////
+
   /**
    * \brief Get the number of packets stored by the queue disc
    * \return the number of packets stored by the queue disc.
@@ -692,6 +712,8 @@ private:
   std::vector<Ptr<QueueDiscClass> > m_classes;  //!< Classes
 
   TracedValue<uint32_t> m_nPackets; //!< Number of packets in the queue
+  // TracedValue<uint32_t> m_nPackets_h; //!< Number of High Priority packets in the queue ######## Added by me!##############
+  // TracedValue<uint32_t> m_nPackets_l; //!< Number of Low Priority packets in the queue ######## Added by me!##############
   TracedValue<uint32_t> m_nBytes;   //!< Number of bytes in the queue
   TracedCallback<Time> m_sojourn;   //!< Sojourn time of the latest dequeued packet
   QueueSize m_maxSize;              //!< max queue size

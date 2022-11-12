@@ -79,24 +79,6 @@ DT2_FifoQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
   //   {
   //     alpha = alpha_l; 
   //   }
-  
-  // set a besic Packet clasification based on flowPriorityTag from recieved packet:
-  // flow_priority = 0 is high priority, flow_priority = 1 is low priority
-  // uint8_t flow_priority = 0;
-  // SocketFlowPriorityTag flowPriorityTag;
-  // if (item->GetPacket ()->PeekPacketTag (flowPriorityTag))
-  //   {
-  //     flow_priority = flowPriorityTag.GetFlowPriority ();
-  //   }
-  
-  // if (flow_priority == 0)
-  //   {
-  //     alpha = alpha_h;
-  //   }
-  // else
-  //   {
-  //     alpha = alpha_l;
-  //   }
 
   // set a besic Packet clasification based on arbitrary Tag from recieved packet:
   // flow_priority = 0 is high priority, flow_priority = 1 is low priority
@@ -132,11 +114,15 @@ DT2_FifoQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
     }
 
   bool retval = GetInternalQueue (0)->Enqueue (item);
-
+  
   // If Queue::Enqueue fails, QueueDisc::DropBeforeEnqueue is called by the
   // internal queue because QueueDisc::AddInternalQueue sets the trace callback
 
   NS_LOG_LOGIC ("Number packets " << GetInternalQueue (0)->GetNPackets ());
+  //////////////////Added by me///////////////////////
+  // NS_LOG_LOGIC ("Number High Priority packets " << GetInternalQueue (0)->GetNPacketsHigh ());
+  // NS_LOG_LOGIC ("Number Low Priority packets " << GetInternalQueue (0)->GetNPacketsLow ());
+  ///////////////////////////////////////////////////////////
   NS_LOG_LOGIC ("Number bytes " << GetInternalQueue (0)->GetNBytes ());
   NS_LOG_LOGIC ("Enqueue Threshold " << GetQueueThreshold (alpha, alpha_l, alpha_h));
 
