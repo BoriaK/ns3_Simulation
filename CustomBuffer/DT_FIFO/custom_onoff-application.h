@@ -22,8 +22,8 @@
 // George F. Riley, Georgia Tech, Spring 2007
 // Adapted from ApplicationOnOff in GTNetS.
 
-#ifndef CUSTOME_ONOFF_APPLICATION_H
-#define CUSTOME_ONOFF_APPLICATION_H
+#ifndef CUSTOM_ONOFF_APPLICATION_H
+#define CUSTOM_ONOFF_APPLICATION_H
 
 #include "ns3/address.h"
 #include "ns3/application.h"
@@ -93,7 +93,7 @@ class Application;
  * the header via trace sources.  Note that the continuity of the sequence
  * number may be disrupted across On/Off cycles.
 */
-class CustomeOnOffApplication : public Application 
+class CustomOnOffApplication : public Application 
 {
 public:
   /**
@@ -102,9 +102,9 @@ public:
    */
   static TypeId GetTypeId (void);
   
-  CustomeOnOffApplication ();
+  CustomOnOffApplication ();
 
-  virtual ~CustomeOnOffApplication();
+  virtual ~CustomOnOffApplication();
 
   /**
    * Setup the socket.
@@ -184,7 +184,8 @@ private:
   Time            m_lastStartTime; //!< Time last packet sent
   uint64_t        m_maxBytes;     //!< Limit total number of bytes sent
   uint64_t        m_totBytes;     //!< Total bytes sent so far
-  uint64_t        m_packetsSent;     //!< Total packets sent so far, added by me
+  uint64_t        m_packetsSent;   //!< Total packets sent so far, added by me
+  uint64_t        m_packetSeqCount; //!< Number of packets sent in sequence, added by me
   EventId         m_startStopEvent;     //!< Event id for next start or stop event
   EventId         m_sendEvent;    //!< Event id of pending "send packet" event
   TypeId          m_tid;          //!< Type of the socket used
@@ -229,4 +230,4 @@ private:
 
 } // namespace ns3
 
-#endif /* CUSTOME_ONOFF_APPLICATION_H */
+#endif /* CUSTOM_ONOFF_APPLICATION_H */

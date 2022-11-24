@@ -19,7 +19,7 @@
  */
 
 #include "ns3/log.h"
-#include "DT2_fifo-queue-disc.h"
+#include "FB_fifo-queue-disc_v01.h"
 #include "ns3/object-factory.h"
 #include "ns3/drop-tail-queue.h"
 #include "ns3/socket.h"
@@ -27,16 +27,16 @@
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("DT2_FifoQueueDisc");
+NS_LOG_COMPONENT_DEFINE ("FB_FifoQueueDisc_v01");
 
-NS_OBJECT_ENSURE_REGISTERED (DT2_FifoQueueDisc);
+NS_OBJECT_ENSURE_REGISTERED (FB_FifoQueueDisc_v01);
 
-TypeId DT2_FifoQueueDisc::GetTypeId (void)
+TypeId FB_FifoQueueDisc_v01::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::DT2_FifoQueueDisc")
+  static TypeId tid = TypeId ("ns3::FB_FifoQueueDisc_v01")
     .SetParent<QueueDisc> ()
     .SetGroupName ("TrafficControl")
-    .AddConstructor<DT2_FifoQueueDisc> ()
+    .AddConstructor<FB_FifoQueueDisc_v01> ()
     .AddAttribute ("MaxSize",
                    "The max queue size",
                    QueueSizeValue (QueueSize ("1000p")),
@@ -47,19 +47,19 @@ TypeId DT2_FifoQueueDisc::GetTypeId (void)
   return tid;
 }
 
-DT2_FifoQueueDisc::DT2_FifoQueueDisc ()
+FB_FifoQueueDisc_v01::FB_FifoQueueDisc_v01 ()
   : QueueDisc (QueueDiscSizePolicy::SINGLE_INTERNAL_QUEUE)
 {
   NS_LOG_FUNCTION (this);
 }
 
-DT2_FifoQueueDisc::~DT2_FifoQueueDisc ()
+FB_FifoQueueDisc_v01::~FB_FifoQueueDisc_v01 ()
 {
   NS_LOG_FUNCTION (this);
 }
 
 bool
-DT2_FifoQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
+FB_FifoQueueDisc_v01::DoEnqueue (Ptr<QueueDiscItem> item)
 {
   NS_LOG_FUNCTION (this << item);
   
@@ -130,7 +130,7 @@ DT2_FifoQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
 }
 
 Ptr<QueueDiscItem>
-DT2_FifoQueueDisc::DoDequeue (void)
+FB_FifoQueueDisc_v01::DoDequeue (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -146,7 +146,7 @@ DT2_FifoQueueDisc::DoDequeue (void)
 }
 
 Ptr<const QueueDiscItem>
-DT2_FifoQueueDisc::DoPeek (void)
+FB_FifoQueueDisc_v01::DoPeek (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -162,7 +162,7 @@ DT2_FifoQueueDisc::DoPeek (void)
 }
 
 bool
-DT2_FifoQueueDisc::CheckConfig (void)
+FB_FifoQueueDisc_v01::CheckConfig (void)
 {
   NS_LOG_FUNCTION (this);
   if (GetNQueueDiscClasses () > 0)
@@ -194,7 +194,7 @@ DT2_FifoQueueDisc::CheckConfig (void)
 }
 
 void
-DT2_FifoQueueDisc::InitializeParams (void)
+FB_FifoQueueDisc_v01::InitializeParams (void)
 {
   NS_LOG_FUNCTION (this);
 }

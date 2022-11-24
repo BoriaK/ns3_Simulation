@@ -51,8 +51,8 @@
 #include "ns3/point-to-point-layout-module.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/flow-monitor-module.h"
-#include "tutorial-app.h"
-#include "custome_onoff-application.h"
+#include "tutorial-app.h"  
+#include "custom_onoff-application.h" 
 
 using namespace ns3;
 
@@ -71,6 +71,21 @@ TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
   std::cout << "TcPacketsInQueue " << newValue << std::endl;
 }
 
+// added by me///////
+void
+TcHighPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
+{
+  // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  std::cout << "TcHighPriorityPacketsInQueue " << newValue << std::endl;
+}
+
+void
+TcLowPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
+{
+  // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  std::cout << "TcLowPriorityPacketsInQueue " << newValue << std::endl;
+}
+
 void
 QueueThresholdHighTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
 {
@@ -84,7 +99,7 @@ QueueThresholdLowTrace (uint32_t oldValue, uint32_t newValue)  // added by me, t
   std::cout << "LowPriorityQueueThreshold " << newValue << " packets " << std::endl;
   // std::cout << "QueueThreshold " << newValue << std::endl;
 }
-
+///end of code///
 void
 DevicePacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
 {
@@ -101,14 +116,14 @@ int main (int argc, char *argv[])
 {
   // Set up some default values for the simulation.
   double simulationTime = 50; //seconds
-  std::string applicationType = "customeOnOff"; // "standardClient"/"OnOff"/"customApplication"/"customeOnOff"
+  std::string applicationType = "customOnOff"; // "standardClient"/"OnOff"/"customApplication"/"customOnOff"
   std::string transportProt = "Udp";
   std::string socketType;
   std::string queue_capacity;
 
   CommandLine cmd (__FILE__);
   cmd.AddValue("Simulation Time", "The total time for the simulation to run", simulationTime);
-  cmd.AddValue ("applicationType", "Application type to use to send data: standardClient, customApplication, OnOff, customeOnOff", applicationType);
+  cmd.AddValue ("applicationType", "Application type to use to send data: standardClient, customApplication, OnOff, customOnOff", applicationType);
   cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, Udp", transportProt);
   cmd.Parse (argc, argv);
   
@@ -121,7 +136,7 @@ int main (int argc, char *argv[])
     {
       queue_capacity = "20p"; // B, the total space on the buffer
     }
-  else if (applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0)
+  else if (applicationType.compare("OnOff") == 0 || applicationType.compare("customOnOff") == 0 || applicationType.compare("customApplication") == 0)
     {
       queue_capacity = "100p"; // B, the total space on the buffer [packets]
     }
@@ -145,11 +160,11 @@ int main (int argc, char *argv[])
   {
     LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
   }
-  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0)&& transportProt.compare ("Tcp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customOnOff") == 0 || applicationType.compare("customApplication") == 0)&& transportProt.compare ("Tcp") == 0)
   {
     LogComponentEnable("TcpSocketImpl", LOG_LEVEL_INFO);
   }
-  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customeOnOff") == 0 || applicationType.compare("customApplication") == 0) && transportProt.compare ("Udp") == 0)
+  else if ((applicationType.compare("OnOff") == 0 || applicationType.compare("customOnOff") == 0 || applicationType.compare("customApplication") == 0) && transportProt.compare ("Udp") == 0)
   {
     LogComponentEnable("UdpSocketImpl", LOG_LEVEL_INFO);
   }
@@ -203,14 +218,16 @@ int main (int argc, char *argv[])
   TrafficControlHelper tch;
   // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("10p"));
   // tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", "MaxSize", StringValue ("10p"));
-  tch.SetRootQueueDisc ("ns3::DT2_FifoQueueDisc", "MaxSize", StringValue ("100p"));
+  tch.SetRootQueueDisc ("ns3::DT_FifoQueueDisc_v02", "MaxSize", StringValue ("100p"));
   
   QueueDiscContainer qdiscs = tch.Install (reciever);
 
   // Ptr<QueueDisc> q = qdiscs.Get (1); // original code - doesn't show values
   Ptr<QueueDisc> q = qdiscs.Get (0); // look at the router queue - shows actual values
   // The Next Line Displayes "PacketsInQueue" statistic at the Traffic Controll Layer
-  q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+  // q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+  q->TraceConnectWithoutContext ("HighPriorityPacketsInQueue", MakeCallback (&TcHighPriorityPacketsInQueueTrace));  // ### ADDED BY ME #####
+  q->TraceConnectWithoutContext ("LowPriorityPacketsInQueue", MakeCallback (&TcLowPriorityPacketsInQueueTrace));  // ### ADDED BY ME #####
   q->TraceConnectWithoutContext("EnqueueingThreshold_High", MakeCallback (&QueueThresholdHighTrace)); // ### ADDED BY ME #####
   q->TraceConnectWithoutContext("EnqueueingThreshold_Low", MakeCallback (&QueueThresholdLowTrace)); // ### ADDED BY ME #####
   Config::ConnectWithoutContextFailSafe ("/NodeList/1/$ns3::TrafficControlLayer/RootQueueDiscList/0/SojournTime",
@@ -304,7 +321,7 @@ int main (int argc, char *argv[])
     // sourceApps3.Start (Seconds (1.0));
     // sourceApps3.Stop (Seconds(3.0));
   }
-  else if (applicationType.compare("customeOnOff") == 0)
+  else if (applicationType.compare("customOnOff") == 0)
   {
     // Create the Custom application to send TCP/UDP to the server
     Ptr<Socket> ns3UdpSocket1 = Socket::CreateSocket (clientNodes.Get (0), UdpSocketFactory::GetTypeId ());
@@ -313,22 +330,22 @@ int main (int argc, char *argv[])
     
     InetSocketAddress socketAddressUp = InetSocketAddress (routerInterface.GetAddress(1), servPort);
     
-    Ptr<CustomeOnOffApplication> customOnOffApp1 = CreateObject<CustomeOnOffApplication> ();
+    Ptr<CustomOnOffApplication> customOnOffApp1 = CreateObject<CustomOnOffApplication> ();
     customOnOffApp1->Setup(ns3UdpSocket1);
     customOnOffApp1->SetAttribute("Remote", AddressValue (socketAddressUp));
-    customOnOffApp1->SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    customOnOffApp1->SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    customOnOffApp1->SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
+    customOnOffApp1->SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.1]"));
     customOnOffApp1->SetAttribute("PacketSize", UintegerValue (payloadSize));
     customOnOffApp1->SetAttribute("DataRate", StringValue ("2Mb/s"));
     customOnOffApp1->SetStartTime (Seconds (1.0));
     customOnOffApp1->SetStopTime (Seconds(3.0));
     clientNodes.Get (0)->AddApplication (customOnOffApp1);
 
-    Ptr<CustomeOnOffApplication> customOnOffApp2 = CreateObject<CustomeOnOffApplication> ();
+    Ptr<CustomOnOffApplication> customOnOffApp2 = CreateObject<CustomOnOffApplication> ();
     customOnOffApp2->Setup(ns3UdpSocket2);
     customOnOffApp2->SetAttribute("Remote", AddressValue (socketAddressUp));
-    customOnOffApp2->SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    customOnOffApp2->SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    customOnOffApp2->SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
+    customOnOffApp2->SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.1]"));
     customOnOffApp2->SetAttribute("PacketSize", UintegerValue (payloadSize));
     customOnOffApp2->SetAttribute("DataRate", StringValue ("2Mb/s"));
     customOnOffApp2->SetStartTime (Seconds (1.0));
@@ -432,7 +449,7 @@ int main (int argc, char *argv[])
                 << "  count:   "<< p.second << std::endl;
     }
 
-  Simulator::Destroy ();
+  // Simulator::Destroy ();
 
   std::cout << std::endl << "*** Application statistics ***" << std::endl;
   double thr = 0;
@@ -443,4 +460,5 @@ int main (int argc, char *argv[])
   std::cout << std::endl << "*** TC Layer statistics ***" << std::endl;
   std::cout << q->GetStats () << std::endl;
   return 0;
+  Simulator::Destroy ();
 }

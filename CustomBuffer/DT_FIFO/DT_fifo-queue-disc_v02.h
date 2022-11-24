@@ -18,10 +18,10 @@
  * Authors:  Stefano Avallone <stavallo@unina.it>
  */
 
-#ifndef DT1_FIFO_QUEUE_DISC_H
-#define DT1_FIFO_QUEUE_DISC_H
+#ifndef DT_FIFO_QUEUE_DISC_V02_H
+#define DT_FIFO_QUEUE_DISC_V02_H
 
-#include "ns3/queue-disc.h"
+#include "queue-disc.h"
 
 namespace ns3 {
 
@@ -31,7 +31,8 @@ namespace ns3 {
  * Simple queue disc implementing the FIFO (First-In First-Out) policy.
  *
  */
-class DT1_FifoQueueDisc : public QueueDisc {
+// class DT_FifoQueueDisc_v02 : public CustomeQueueDisc {
+class DT_FifoQueueDisc_v02 : public QueueDisc {
 public:
   /**
    * \brief Get the type ID.
@@ -43,9 +44,9 @@ public:
    *
    * Creates a queue with a depth of 1000 packets by default
    */
-  DT1_FifoQueueDisc ();
+  DT_FifoQueueDisc_v02 ();
 
-  virtual ~DT1_FifoQueueDisc();
+  virtual ~DT_FifoQueueDisc_v02();
 
   // Reasons for dropping packets
   static constexpr const char* LIMIT_EXCEEDED_DROP = "Queue disc limit exceeded";  //!< Packet dropped due to queue disc limit exceeded
@@ -60,4 +61,4 @@ private:
 
 } // namespace ns3
 
-#endif /* DT1_FIFO_QUEUE_DISC_H */
+#endif /* DT_FIFO_QUEUE_DISC_V02_H */

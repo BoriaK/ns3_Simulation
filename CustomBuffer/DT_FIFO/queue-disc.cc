@@ -25,13 +25,14 @@
 #include "ns3/packet.h"
 #include "ns3/socket.h"
 #include "ns3/simulator.h"
-#include "queue-disc.h"
 #include "ns3/net-device-queue-interface.h"
 #include "ns3/queue.h"
+#include "queue-disc.h"
+#include "customTag.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("CustomeQueueDisc");
+NS_LOG_COMPONENT_DEFINE ("CustomQueueDisc");
 
 
 NS_OBJECT_ENSURE_REGISTERED (QueueDiscClass);
@@ -94,9 +95,13 @@ QueueDisc::Stats::Stats ()
     nTotalDequeuedBytes (0),
     nTotalDroppedPackets (0),
     nTotalDroppedPacketsBeforeEnqueue (0),
+    nTotalDroppedPacketsBeforeEnqueueHighPriority (0), // added by me
+    nTotalDroppedPacketsBeforeEnqueueLowPriority (0), // added by me
     nTotalDroppedPacketsAfterDequeue (0),
     nTotalDroppedBytes (0),
     nTotalDroppedBytesBeforeEnqueue (0),
+    nTotalDroppedBytesBeforeEnqueueHighPriority (0), // added by me
+    nTotalDroppedBytesBeforeEnqueueLowPriority (0), // added by me
     nTotalDroppedBytesAfterDequeue (0),
     nTotalRequeuedPackets (0),
     nTotalRequeuedBytes (0),
@@ -194,9 +199,16 @@ QueueDisc::Stats::Print (std::ostream &os) const
      << std::endl << "Packets/Bytes dropped: "
                   << nTotalDroppedPackets << " / "
                   << nTotalDroppedBytes
+     << std::endl << "High Priority Packets/Bytes dropped before enqueue: "
+                  << nTotalDroppedPacketsBeforeEnqueueHighPriority << " / "
+                  << nTotalDroppedBytesBeforeEnqueueHighPriority
+     << std::endl << "Low Priority Packets/Bytes dropped before enqueue: "
+                  << nTotalDroppedPacketsBeforeEnqueueLowPriority << " / "
+                  << nTotalDroppedBytesBeforeEnqueueLowPriority                  
      << std::endl << "Packets/Bytes dropped before enqueue: "
                   << nTotalDroppedPacketsBeforeEnqueue << " / "
                   << nTotalDroppedBytesBeforeEnqueue;
+
 
   itp = nDroppedPacketsBeforeEnqueue.begin ();
   itb = nDroppedBytesBeforeEnqueue.begin ();
@@ -306,14 +318,14 @@ TypeId QueueDisc::GetTypeId (void)
                      "Number of packets currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nPackets),
                      "ns3::TracedValueCallback::Uint32")
-    // .AddTraceSource ("HighPriorityPacketsInQueue",
-    //                  "Number of packets currently stored in the queue disc",
-    //                  MakeTraceSourceAccessor (&QueueDisc::m_nPackets_h),
-    //                  "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########
-    // .AddTraceSource ("LowPriorityPacketsInQueue",
-    //                  "Number of packets currently stored in the queue disc",
-    //                  MakeTraceSourceAccessor (&QueueDisc::m_nPackets_l),
-    //                  "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########                   
+    .AddTraceSource ("HighPriorityPacketsInQueue",
+                     "Number of packets currently stored in the queue disc",
+                     MakeTraceSourceAccessor (&QueueDisc::m_nPackets_h),
+                     "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########
+    .AddTraceSource ("LowPriorityPacketsInQueue",
+                     "Number of packets currently stored in the queue disc",
+                     MakeTraceSourceAccessor (&QueueDisc::m_nPackets_l),
+                     "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########                   
     .AddTraceSource ("BytesInQueue",
                      "Number of bytes currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nBytes),
@@ -336,8 +348,8 @@ TypeId QueueDisc::GetTypeId (void)
 
 QueueDisc::QueueDisc (QueueDiscSizePolicy policy)
   :  m_nPackets (0),
-    //  m_nPackets_h(0),
-    //  m_nPackets_l(0),
+     m_nPackets_h(0),
+     m_nPackets_l(0),
      m_nBytes (0),
      m_maxSize (QueueSize ("1p")),         // to avoid that setting the mode at construction time is ignored
      m_p_threshold_h (m_maxSize.GetValue ()),  // initilize high priority threshold to be max queue size, not sure it's nessesarry!!!!// Added by me
@@ -453,21 +465,7 @@ QueueDisc::GetStats (void)
 
   return m_stats;
 }
-//////////////////////////////////////// Added by me/////////////////////
-// uint32_t
-// QueueDisc::GetNPacketsHigh () const
-// {
-//   NS_LOG_FUNCTION (this);
-//   return m_nPackets_h;
-// }
 
-// uint32_t
-// QueueDisc::GetNPacketsLow () const
-// {
-//   NS_LOG_FUNCTION (this);
-//   return m_nPackets_l;
-// }
-////////////////////////////////////////////////////////////////////////////////
 uint32_t
 QueueDisc::GetNPackets () const
 {
@@ -759,9 +757,28 @@ QueueDisc::GetWakeMode (void) const
   return WAKE_ROOT;
 }
 
+/////added only to trace packets from different classes/////
+MyTag flowPrioTag;
+uint8_t flow_priority = 0;
+/////////////////////////////////////////////
 void
 QueueDisc::PacketEnqueued (Ptr<const QueueDiscItem> item)
 {
+  ///added by me///
+    if (item->GetPacket ()->PeekPacketTag (flowPrioTag))
+    {
+      flow_priority = flowPrioTag.GetSimpleValue();
+    }
+  
+  if (flow_priority == 0)
+    {
+      m_nPackets_h++;
+    }
+  else
+    {
+      m_nPackets_l++;
+    }
+  ///end of code segment////
   m_nPackets++;
   m_nBytes += item->GetSize ();
   m_stats.nTotalEnqueuedPackets++;
@@ -781,6 +798,21 @@ QueueDisc::PacketDequeued (Ptr<const QueueDiscItem> item)
   // the packet will be actually dequeued.
   if (!m_peeked)
     {
+        ///added by me///
+    if (item->GetPacket ()->PeekPacketTag (flowPrioTag))
+      {
+        flow_priority = flowPrioTag.GetSimpleValue();
+      }
+  
+    if (flow_priority == 0)
+      {
+        m_nPackets_h--;
+      }
+    else
+      {
+        m_nPackets_l--;
+      }
+  ///end of code segment////
       m_nPackets--;
       m_nBytes -= item->GetSize ();
       m_stats.nTotalDequeuedPackets++;
@@ -802,6 +834,23 @@ QueueDisc::DropBeforeEnqueue (Ptr<const QueueDiscItem> item, const char* reason)
   m_stats.nTotalDroppedBytes += item->GetSize ();
   m_stats.nTotalDroppedPacketsBeforeEnqueue++;
   m_stats.nTotalDroppedBytesBeforeEnqueue += item->GetSize ();
+  /////////////////////////////// Added by me////////////////
+  if (item->GetPacket ()->PeekPacketTag (flowPrioTag))
+    {
+      flow_priority = flowPrioTag.GetSimpleValue();
+    }
+  
+  if (flow_priority == 0)
+    {
+      m_stats.nTotalDroppedPacketsBeforeEnqueueHighPriority++;
+      m_stats.nTotalDroppedBytesBeforeEnqueueHighPriority += item->GetSize ();
+    }
+  else
+    {
+      m_stats.nTotalDroppedPacketsBeforeEnqueueLowPriority++;
+      m_stats.nTotalDroppedBytesBeforeEnqueueLowPriority += item->GetSize ();
+    }
+  //////////////////////////////
 
   // update the number of packets dropped for the given reason
   std::map<std::string, uint32_t>::iterator itp = m_stats.nDroppedPacketsBeforeEnqueue.find (reason);
@@ -823,7 +872,14 @@ QueueDisc::DropBeforeEnqueue (Ptr<const QueueDiscItem> item, const char* reason)
     {
       m_stats.nDroppedBytesBeforeEnqueue[reason] = item->GetSize ();
     }
-
+////////////////Added by me/////////////////////////////////////////////////////////
+  NS_LOG_DEBUG ("Total High Priority packets/bytes dropped before enqueue: "
+                << m_stats.nTotalDroppedPacketsBeforeEnqueueHighPriority << " / "
+                << m_stats.nTotalDroppedBytesBeforeEnqueueHighPriority);
+  NS_LOG_DEBUG ("Total Low Priority packets/bytes dropped before enqueue: "
+                << m_stats.nTotalDroppedPacketsBeforeEnqueueLowPriority << " / "
+                << m_stats.nTotalDroppedBytesBeforeEnqueueLowPriority);                
+////////////////////////////////////////////////////////////////////////////////////////////
   NS_LOG_DEBUG ("Total packets/bytes dropped before enqueue: "
                 << m_stats.nTotalDroppedPacketsBeforeEnqueue << " / "
                 << m_stats.nTotalDroppedBytesBeforeEnqueue);

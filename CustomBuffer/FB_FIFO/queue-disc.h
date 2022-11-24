@@ -20,15 +20,16 @@
 #ifndef QUEUE_DISC_H
 #define QUEUE_DISC_H
 
+#include <vector>
+#include <map>
+#include <functional>
+#include <string>
+
 #include "ns3/object.h"
 #include "ns3/traced-value.h"
 #include "ns3/traced-callback.h"
 #include "ns3/queue-item.h"
 #include "ns3/queue-size.h"
-#include <vector>
-#include <map>
-#include <functional>
-#include <string>
 #include "ns3/packet-filter.h"
 
 namespace ns3 {
@@ -204,6 +205,10 @@ public:
     uint32_t nTotalDroppedPackets;
     /// Total packets dropped before enqueue
     uint32_t nTotalDroppedPacketsBeforeEnqueue;
+    /// Total High Pririty packets dropped before enqueue
+    uint32_t nTotalDroppedPacketsBeforeEnqueueHighPriority;  // added by me
+    /// Total Low Pririty packets dropped before enqueue
+    uint32_t nTotalDroppedPacketsBeforeEnqueueLowPriority;  // added by me
     /// Packets dropped before enqueue, for each reason
     std::map<std::string, uint32_t, std::less<>> nDroppedPacketsBeforeEnqueue;
     /// Total packets dropped after dequeue
@@ -216,6 +221,14 @@ public:
     uint64_t nTotalDroppedBytesBeforeEnqueue;
     /// Bytes dropped before enqueue, for each reason
     std::map<std::string, uint64_t, std::less<>> nDroppedBytesBeforeEnqueue;
+    /// Total High Pririty bytes dropped before enqueue
+    uint64_t nTotalDroppedBytesBeforeEnqueueHighPriority;  // added by me;
+    // /// Bytes dropped before enqueue, for each reason
+    // std::map<std::string, uint64_t, std::less<>> nDroppedBytesBeforeEnqueueHighPriority;
+    /// Total Low Pririty bytes dropped before enqueue
+    uint64_t nTotalDroppedBytesBeforeEnqueueLowPriority;  // added by me;
+    // /// Bytes dropped before enqueue, for each reason
+    // std::map<std::string, uint64_t, std::less<>> nDroppedBytesBeforeEnqueueLowPriority;        
     /// Total bytes dropped after dequeue
     uint64_t nTotalDroppedBytesAfterDequeue;
     /// Bytes dropped after dequeue, for each reason
@@ -712,8 +725,8 @@ private:
   std::vector<Ptr<QueueDiscClass> > m_classes;  //!< Classes
 
   TracedValue<uint32_t> m_nPackets; //!< Number of packets in the queue
-  // TracedValue<uint32_t> m_nPackets_h; //!< Number of High Priority packets in the queue ######## Added by me!##############
-  // TracedValue<uint32_t> m_nPackets_l; //!< Number of Low Priority packets in the queue ######## Added by me!##############
+  TracedValue<uint32_t> m_nPackets_h; //!< Number of High Priority packets in the queue ######## Added by me!##############
+  TracedValue<uint32_t> m_nPackets_l; //!< Number of Low Priority packets in the queue ######## Added by me!##############
   TracedValue<uint32_t> m_nBytes;   //!< Number of bytes in the queue
   TracedCallback<Time> m_sojourn;   //!< Sojourn time of the latest dequeued packet
   QueueSize m_maxSize;              //!< max queue size

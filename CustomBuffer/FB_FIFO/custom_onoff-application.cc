@@ -37,96 +37,97 @@
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
 #include "ns3/trace-source-accessor.h"
-#include "custome_onoff-application.h"
 #include "ns3/udp-socket-factory.h"
 #include "ns3/string.h"
 #include "ns3/pointer.h"
 #include "ns3/boolean.h"
 #include "customTag.h"
+#include "custom_onoff-application.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("CustomeOnOffApplication");
+NS_LOG_COMPONENT_DEFINE ("CustomOnOffApplication");
 
-NS_OBJECT_ENSURE_REGISTERED (CustomeOnOffApplication);
+NS_OBJECT_ENSURE_REGISTERED (CustomOnOffApplication);
 
 TypeId
-CustomeOnOffApplication::GetTypeId (void)
+CustomOnOffApplication::GetTypeId (void)
 {
-  // static TypeId tid = TypeId ("ns3::CustomeOnOffApplication")
-  static TypeId tid = TypeId ("CustomeOnOffApplication")
+  // static TypeId tid = TypeId ("ns3::CustomOnOffApplication")
+  static TypeId tid = TypeId ("CustomOnOffApplication")
     .SetParent<Application> ()
     .SetGroupName("Applications")
-    .AddConstructor<CustomeOnOffApplication> ()
+    .AddConstructor<CustomOnOffApplication> ()
     .AddAttribute ("DataRate", "The data rate in on state.",
                    DataRateValue (DataRate ("500kb/s")),
-                   MakeDataRateAccessor (&CustomeOnOffApplication::m_cbrRate),
+                   MakeDataRateAccessor (&CustomOnOffApplication::m_cbrRate),
                    MakeDataRateChecker ())
     .AddAttribute ("PacketSize", "The size of packets sent in on state",
                    UintegerValue (512),
-                   MakeUintegerAccessor (&CustomeOnOffApplication::m_pktSize),
+                   MakeUintegerAccessor (&CustomOnOffApplication::m_pktSize),
                    MakeUintegerChecker<uint32_t> (1))
     .AddAttribute ("Remote", "The address of the destination",
                    AddressValue (),
-                   MakeAddressAccessor (&CustomeOnOffApplication::m_peer),
+                   MakeAddressAccessor (&CustomOnOffApplication::m_peer),
                    MakeAddressChecker ())
     .AddAttribute ("Local",
                    "The Address on which to bind the socket. If not set, it is generated automatically.",
                    AddressValue (),
-                   MakeAddressAccessor (&CustomeOnOffApplication::m_local),
+                   MakeAddressAccessor (&CustomOnOffApplication::m_local),
                    MakeAddressChecker ())
     .AddAttribute ("OnTime", "A RandomVariableStream used to pick the duration of the 'On' state.",
                    StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-                   MakePointerAccessor (&CustomeOnOffApplication::m_onTime),
+                   MakePointerAccessor (&CustomOnOffApplication::m_onTime),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("OffTime", "A RandomVariableStream used to pick the duration of the 'Off' state.",
                    StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-                   MakePointerAccessor (&CustomeOnOffApplication::m_offTime),
+                   MakePointerAccessor (&CustomOnOffApplication::m_offTime),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("MaxBytes", 
                    "The total number of bytes to send. Once these bytes are sent, "
                    "no packet is sent again, even in on state. The value zero means "
                    "that there is no limit.",
                    UintegerValue (0),
-                   MakeUintegerAccessor (&CustomeOnOffApplication::m_maxBytes),
+                   MakeUintegerAccessor (&CustomOnOffApplication::m_maxBytes),
                    MakeUintegerChecker<uint64_t> ())
     .AddAttribute ("Protocol", "The type of protocol to use. This should be "
                    "a subclass of ns3::SocketFactory",
                    TypeIdValue (UdpSocketFactory::GetTypeId ()),
-                   MakeTypeIdAccessor (&CustomeOnOffApplication::m_tid),
+                   MakeTypeIdAccessor (&CustomOnOffApplication::m_tid),
                    // This should check for SocketFactory as a parent
                    MakeTypeIdChecker ())
     .AddAttribute ("EnableSeqTsSizeHeader",
                    "Enable use of SeqTsSizeHeader for sequence number and timestamp",
                    BooleanValue (false),
-                   MakeBooleanAccessor (&CustomeOnOffApplication::m_enableSeqTsSizeHeader),
+                   MakeBooleanAccessor (&CustomOnOffApplication::m_enableSeqTsSizeHeader),
                    MakeBooleanChecker ())
     .AddTraceSource ("Tx", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&CustomeOnOffApplication::m_txTrace),
+                     MakeTraceSourceAccessor (&CustomOnOffApplication::m_txTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("TxWithAddresses", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&CustomeOnOffApplication::m_txTraceWithAddresses),
+                     MakeTraceSourceAccessor (&CustomOnOffApplication::m_txTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
     .AddTraceSource ("TxWithSeqTsSize", "A new packet is created with SeqTsSizeHeader",
-                     MakeTraceSourceAccessor (&CustomeOnOffApplication::m_txTraceWithSeqTsSize),
+                     MakeTraceSourceAccessor (&CustomOnOffApplication::m_txTraceWithSeqTsSize),
                      "ns3::PacketSink::SeqTsSizeCallback")
   ;
   return tid;
 }
 
-CustomeOnOffApplication::CustomeOnOffApplication ()
+CustomOnOffApplication::CustomOnOffApplication ()
   : m_socket (0),
     m_connected (false),
     m_residualBits (0),
     m_lastStartTime (Seconds (0)),
     m_totBytes (0),
     m_packetsSent (0), // total number of sent packets, added by me
+    m_packetSeqCount(1), // number of sent packets per sequence, always start with 1, added by me!
     m_unsentPacket (0)
 {
   NS_LOG_FUNCTION (this);
 }
 
-CustomeOnOffApplication::~CustomeOnOffApplication()
+CustomOnOffApplication::~CustomOnOffApplication()
 {
   NS_LOG_FUNCTION (this);
 }
@@ -134,7 +135,7 @@ CustomeOnOffApplication::~CustomeOnOffApplication()
 void
 // CustomeOnOffApplication::Setup (Ptr<Socket> socket, Address address, uint32_t packetSize, uint32_t nPackets, DataRate dataRate, Ptr<RandomVariableStream> onTime, Ptr<RandomVariableStream> offTime)
 // CustomeOnOffApplication::Setup (Ptr<Socket> socket, Address address, uint32_t packetSize, uint32_t nPackets, DataRate dataRate) // add on time and off time as attributes
-CustomeOnOffApplication::Setup (Ptr<Socket> socket)
+CustomOnOffApplication::Setup (Ptr<Socket> socket)
 {
   m_socket = socket;
   // m_peer = address;
@@ -146,7 +147,7 @@ CustomeOnOffApplication::Setup (Ptr<Socket> socket)
 }
 
 void 
-CustomeOnOffApplication::SetMaxBytes (uint64_t maxBytes)
+CustomOnOffApplication::SetMaxBytes (uint64_t maxBytes)
 {
   NS_LOG_FUNCTION (this << maxBytes);
   m_maxBytes = maxBytes;
@@ -160,7 +161,7 @@ CustomeOnOffApplication::SetMaxBytes (uint64_t maxBytes)
 // }
 
 int64_t 
-CustomeOnOffApplication::AssignStreams (int64_t stream)
+CustomOnOffApplication::AssignStreams (int64_t stream)
 {
   NS_LOG_FUNCTION (this << stream);
   m_onTime->SetStream (stream);
@@ -169,7 +170,7 @@ CustomeOnOffApplication::AssignStreams (int64_t stream)
 }
 
 void
-CustomeOnOffApplication::DoDispose (void)
+CustomOnOffApplication::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -181,7 +182,7 @@ CustomeOnOffApplication::DoDispose (void)
 }
 
 // Application Methods
-void CustomeOnOffApplication::StartApplication () // Called at time specified by Start
+void CustomOnOffApplication::StartApplication () // Called at time specified by Start
 {
   NS_LOG_FUNCTION (this);
 
@@ -190,8 +191,8 @@ void CustomeOnOffApplication::StartApplication () // Called at time specified by
   m_socket->ShutdownRecv ();
 
   m_socket->SetConnectCallback (
-    MakeCallback (&CustomeOnOffApplication::ConnectionSucceeded, this),
-    MakeCallback (&CustomeOnOffApplication::ConnectionFailed, this));
+    MakeCallback (&CustomOnOffApplication::ConnectionSucceeded, this),
+    MakeCallback (&CustomOnOffApplication::ConnectionFailed, this));
   m_cbrRateFailSafe = m_cbrRate;
 
   // Insure no pending event
@@ -202,7 +203,7 @@ void CustomeOnOffApplication::StartApplication () // Called at time specified by
   ScheduleStartEvent ();
 }
 
-void CustomeOnOffApplication::StopApplication () // Called at time specified by Stop
+void CustomOnOffApplication::StopApplication () // Called at time specified by Stop
 {
   NS_LOG_FUNCTION (this);
 
@@ -217,7 +218,7 @@ void CustomeOnOffApplication::StopApplication () // Called at time specified by 
     }
 }
 
-void CustomeOnOffApplication::CancelEvents ()
+void CustomOnOffApplication::CancelEvents ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -241,7 +242,7 @@ void CustomeOnOffApplication::CancelEvents ()
 }
 
 // Event handlers
-void CustomeOnOffApplication::StartSending ()
+void CustomOnOffApplication::StartSending ()
 {
   NS_LOG_FUNCTION (this);
   m_lastStartTime = Simulator::Now ();
@@ -249,7 +250,7 @@ void CustomeOnOffApplication::StartSending ()
   ScheduleStopEvent ();
 }
 
-void CustomeOnOffApplication::StopSending ()
+void CustomOnOffApplication::StopSending ()
 {
   NS_LOG_FUNCTION (this);
   CancelEvents ();
@@ -258,7 +259,7 @@ void CustomeOnOffApplication::StopSending ()
 }
 
 // Private helpers
-void CustomeOnOffApplication::ScheduleNextTx ()
+void CustomOnOffApplication::ScheduleNextTx ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -271,7 +272,7 @@ void CustomeOnOffApplication::ScheduleNextTx ()
                               static_cast<double>(m_cbrRate.GetBitRate ()))); // Time till next packet
       NS_LOG_LOGIC ("nextTime = " << nextTime.As (Time::S));
       m_sendEvent = Simulator::Schedule (nextTime,
-                                         &CustomeOnOffApplication::SendPacket, this);
+                                         &CustomOnOffApplication::SendPacket, this);
     }
   else
     { // All done, cancel any pending events
@@ -279,26 +280,27 @@ void CustomeOnOffApplication::ScheduleNextTx ()
     }
 }
 
-void CustomeOnOffApplication::ScheduleStartEvent ()
+void CustomOnOffApplication::ScheduleStartEvent ()
 {  // Schedules the event to start sending data (switch to the "On" state)
   NS_LOG_FUNCTION (this);
 
   Time offInterval = Seconds (m_offTime->GetValue ());
   NS_LOG_LOGIC ("start at " << offInterval.As (Time::S));
-  m_startStopEvent = Simulator::Schedule (offInterval, &CustomeOnOffApplication::StartSending, this);
+  m_startStopEvent = Simulator::Schedule (offInterval, &CustomOnOffApplication::StartSending, this);
 }
 
-void CustomeOnOffApplication::ScheduleStopEvent ()
+void CustomOnOffApplication::ScheduleStopEvent ()
 {  // Schedules the event to stop sending data (switch to "Off" state)
   NS_LOG_FUNCTION (this);
 
   Time onInterval = Seconds (m_onTime->GetValue ());
   NS_LOG_LOGIC ("stop at " << onInterval.As (Time::S));
-  m_startStopEvent = Simulator::Schedule (onInterval, &CustomeOnOffApplication::StopSending, this);
+  m_startStopEvent = Simulator::Schedule (onInterval, &CustomOnOffApplication::StopSending, this);
+  m_packetSeqCount = 1;
 }
 
 
-void CustomeOnOffApplication::SendPacket ()
+void CustomOnOffApplication::SendPacket ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -328,16 +330,16 @@ void CustomeOnOffApplication::SendPacket ()
       packet = Create<Packet> (m_pktSize);
     }
   
-  ///////////////////////
+  /////////////////////// option1: add priority tag to packet
   // create a tag.
   MyTag flowPrioTag;
   // set Tag value to depend on the number of previously sent packets
-  // if m_packetsSent < Threshold: TagValue->0x0 (High Priority)
-  // if m_packetsSent >= Threshold: TagValue->0x1 (Low Priority)
+  // if m_packetSeqCount < Threshold: TagValue->0x0 (High Priority)
+  // if m_packetSeqCount >= Threshold: TagValue->0x1 (Low Priority)
   
   uint8_t Threshold = 10; // [packets], max number of packets per flow to be considered mouse flow
 
-  if (m_packetsSent < Threshold)
+  if (m_packetSeqCount < Threshold)
   {
     flowPrioTag.SetSimpleValue (0x0);
   }
@@ -346,13 +348,25 @@ void CustomeOnOffApplication::SendPacket ()
 
   // store the tag in a packet.
   packet->AddPacketTag (flowPrioTag);
-///////////////////////////
+/////////////////////////
+
+// /////////////////////// option2: add sequence conter tag to packet
+//   // create a tag.
+//   MyTag flowPacketCounterTag;
+// // add a Flow Packet Counter Tag to each packet in Tx
+// // Rx can asign priority based on sequence length
+
+//   flowPacketCounterTag.SetSimpleValue(m_packetSeqCount);
+//   // store the tag in a packet.
+//   packet->AddPacketTag (flowPacketCounterTag);
+// ///////////////////////////
   int actual = m_socket->Send (packet);
   if ((unsigned) actual == m_pktSize)
     {
       m_txTrace (packet);
       m_totBytes += m_pktSize;
       m_packetsSent++;
+      m_packetSeqCount++;
       m_unsentPacket = 0;
       Address localAddress;
       m_socket->GetSockName (localAddress);
@@ -388,13 +402,13 @@ void CustomeOnOffApplication::SendPacket ()
 }
 
 
-void CustomeOnOffApplication::ConnectionSucceeded (Ptr<Socket> socket)
+void CustomOnOffApplication::ConnectionSucceeded (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
   m_connected = true;
 }
 
-void CustomeOnOffApplication::ConnectionFailed (Ptr<Socket> socket)
+void CustomOnOffApplication::ConnectionFailed (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
   NS_FATAL_ERROR ("Can't connect");

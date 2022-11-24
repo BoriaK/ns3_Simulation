@@ -19,22 +19,24 @@
  */
 
 #include "ns3/log.h"
-#include "DT1_fifo-queue-disc.h"
+#include "DT_fifo-queue-disc_v02.h"
 #include "ns3/object-factory.h"
 #include "ns3/drop-tail-queue.h"
+#include "ns3/socket.h"
+#include "customTag.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("DT1_FifoQueueDisc");
+NS_LOG_COMPONENT_DEFINE ("DT_FifoQueueDisc_v02");
 
-NS_OBJECT_ENSURE_REGISTERED (DT1_FifoQueueDisc);
+NS_OBJECT_ENSURE_REGISTERED (DT_FifoQueueDisc_v02);
 
-TypeId DT1_FifoQueueDisc::GetTypeId (void)
+TypeId DT_FifoQueueDisc_v02::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::DT1_FifoQueueDisc")
+  static TypeId tid = TypeId ("ns3::DT_FifoQueueDisc_v02")
     .SetParent<QueueDisc> ()
     .SetGroupName ("TrafficControl")
-    .AddConstructor<DT1_FifoQueueDisc> ()
+    .AddConstructor<DT_FifoQueueDisc_v02> ()
     .AddAttribute ("MaxSize",
                    "The max queue size",
                    QueueSizeValue (QueueSize ("1000p")),
@@ -45,42 +47,94 @@ TypeId DT1_FifoQueueDisc::GetTypeId (void)
   return tid;
 }
 
-DT1_FifoQueueDisc::DT1_FifoQueueDisc ()
+DT_FifoQueueDisc_v02::DT_FifoQueueDisc_v02 ()
   : QueueDisc (QueueDiscSizePolicy::SINGLE_INTERNAL_QUEUE)
 {
   NS_LOG_FUNCTION (this);
 }
 
-DT1_FifoQueueDisc::~DT1_FifoQueueDisc ()
+DT_FifoQueueDisc_v02::~DT_FifoQueueDisc_v02 ()
 {
   NS_LOG_FUNCTION (this);
 }
 
 bool
-DT1_FifoQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
+DT_FifoQueueDisc_v02::DoEnqueue (Ptr<QueueDiscItem> item)
 {
   NS_LOG_FUNCTION (this << item);
+  
+  int alpha_l = 1;
+  int alpha_h = 2;
+  int alpha;
 
-  if (GetCurrentSize () + item > GetMaxSize ())
+ ///////////////////////////////////////////////////////// 
+  // set a besic Packet clasification based on arbitrary Tag from recieved packet:
+  // flow_priority = 0 is high priority, flow_priority = 1 is low priority
+  uint8_t flow_priority = 0;
+  MyTag flowPrioTag;
+  if (item->GetPacket ()->PeekPacketTag (flowPrioTag))
     {
-      NS_LOG_LOGIC ("Queue full -- dropping pkt");
+      flow_priority = flowPrioTag.GetSimpleValue();
+    }
+  
+  if (flow_priority == 0)
+    {
+      alpha = alpha_h;
+    }
+  else
+    {
+      alpha = alpha_l;
+    }
+/////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////
+  // // set a besic Packet clasification based on packetSequence Length Tag ("flowPacketCounterTag") from recieved packet:
+  // // set threshold to (arbirary) value
+  // // if flowPacketCounterTag <= Threshold then flow_priority is high
+  // // if flowPacketCounterTag > Threshold then flow_priority is low
+  // // flow_priority = 0 is high priority, flow_priority = 1 is low priority
+  // uint8_t Threshold = 10; // [packets], max number of packets per flow to be considered mouse flow
+  // uint64_t packetSeqCount = 0;
+  // MyTag flowPacketCounterTag;
+  //   if (item->GetPacket ()->PeekPacketTag (flowPacketCounterTag))
+  //   {
+  //     packetSeqCount = flowPacketCounterTag.GetSimpleValue();
+  //   }
+    
+  //   if (packetSeqCount <= Threshold)
+  //     {
+  //       alpha = alpha_h;
+  //     }
+  //   else
+  //     {
+  //       alpha = alpha_l;
+  //     }
+///////////////////////////////////////////////////////////////////////////////
+
+
+  // if (GetCurrentSize () + item > GetMaxSize ())
+  if ((GetCurrentSize () + item > GetQueueThreshold(alpha, alpha_l, alpha_h)) or (GetCurrentSize () + item > GetMaxSize ()))
+    {
+      // NS_LOG_LOGIC ("Queue full -- dropping pkt");
+      NS_LOG_LOGIC ("Queue exceeds threshold -- dropping pkt");
       DropBeforeEnqueue (item, LIMIT_EXCEEDED_DROP);
       return false;
     }
 
   bool retval = GetInternalQueue (0)->Enqueue (item);
-
+  
   // If Queue::Enqueue fails, QueueDisc::DropBeforeEnqueue is called by the
   // internal queue because QueueDisc::AddInternalQueue sets the trace callback
 
   NS_LOG_LOGIC ("Number packets " << GetInternalQueue (0)->GetNPackets ());
   NS_LOG_LOGIC ("Number bytes " << GetInternalQueue (0)->GetNBytes ());
+  NS_LOG_LOGIC ("Enqueue Threshold " << GetQueueThreshold (alpha, alpha_l, alpha_h));
 
   return retval;
 }
 
 Ptr<QueueDiscItem>
-DT1_FifoQueueDisc::DoDequeue (void)
+DT_FifoQueueDisc_v02::DoDequeue (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -96,7 +150,7 @@ DT1_FifoQueueDisc::DoDequeue (void)
 }
 
 Ptr<const QueueDiscItem>
-DT1_FifoQueueDisc::DoPeek (void)
+DT_FifoQueueDisc_v02::DoPeek (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -112,7 +166,7 @@ DT1_FifoQueueDisc::DoPeek (void)
 }
 
 bool
-DT1_FifoQueueDisc::CheckConfig (void)
+DT_FifoQueueDisc_v02::CheckConfig (void)
 {
   NS_LOG_FUNCTION (this);
   if (GetNQueueDiscClasses () > 0)
@@ -144,7 +198,7 @@ DT1_FifoQueueDisc::CheckConfig (void)
 }
 
 void
-DT1_FifoQueueDisc::InitializeParams (void)
+DT_FifoQueueDisc_v02::InitializeParams (void)
 {
   NS_LOG_FUNCTION (this);
 }
