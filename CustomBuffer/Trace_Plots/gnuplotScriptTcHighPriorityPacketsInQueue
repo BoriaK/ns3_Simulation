@@ -1,0 +1,6 @@
+set terminal pngcairo enhanced color lw 1.5 font 'Times Roman'
+set output "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/TcHighPriorityPacketsInQueue.png"
+set xlabel "Time (sec)"
+set ylabel "Queue occupancy (No. of packets)"
+set key right top vertical
+plot "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/highPriorityPacketsInQueueTrace.dat" title "High Priority Packets in Queue" with lines lw 1.5 lc 'blue'

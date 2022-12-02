@@ -1,0 +1,30 @@
+set terminal pngcairo enhanced color lw 1.5 font 'Times Roman'
+set output "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/TotalPacketsInQueue.png"
+
+set multiplot layout 2, 1 title "Total Packets In Queue" font ",14"
+
+set title "High Priority"
+set xlabel "Time (sec)"
+set ylabel "Queue occupancy (No. of packets)"
+
+set grid nopolar
+set grid xtics nomxtics noytics nomytics noztics nomztics nortics nomrtics \
+ nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+set grid layerdefault   linecolor rgb "gray"  linewidth 0.750 dashtype solid,  linecolor rgb "gray"  linewidth 0.750 dashtype solid
+
+set key right top vertical
+plot "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/highPriorityPacketsInQueueTrace.dat" title "High Priority Packets in Queue" with lines lw 1.5 lc 'blue', \
+     "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/highPriorityQueueThreshold.dat" title "High Priority Threshold in Queue" with lines lw 1.5 lc 'red'
+
+set title "Low Priority"
+set xlabel "Time (sec)"
+set ylabel "Queue occupancy (No. of packets)"
+
+set grid nopolar
+set grid xtics nomxtics noytics nomytics noztics nomztics nortics nomrtics \
+ nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+set grid layerdefault   linecolor rgb "gray"  linewidth 0.750 dashtype solid,  linecolor rgb "gray"  linewidth 0.750 dashtype solid
+
+set key right top vertical
+plot "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/lowPriorityPacketsInQueueTrace.dat" title "Low Priority Packets in Queue" with lines lw 1.5 lc 'green', \
+     "CustomBuffer/Trace_Plots/DT_FifoQueueDisc_v02/lowPriorityQueueThreshold.dat" title "Low Priority Threshold in Queue" with lines lw 1.5 lc 'orange'

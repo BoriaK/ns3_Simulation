@@ -18,7 +18,7 @@
 //
 // Network topology
 //
-//           10Mb/s, 10ms       10Mb/s, 10ms
+//           10Mb/s, 10ms       100Kb/s, 10ms
 //       n0-----------------n1-----------------n2
 //
 //
@@ -47,13 +47,59 @@
 
 using namespace ns3;
 
+std::string dir = "./CustomBuffer/Trace_Plots/";
+std::string queue_disc_type = "DT_FifoQueueDisc_v02";
+
+uint32_t prev = 0;
+Time prevTime = Seconds (0);
+
 NS_LOG_COMPONENT_DEFINE ("TrafficControlExample_Line_v01_with_CustomApp");
 
+/////////////////////////////////
+// Calculate throughput
 static void
-CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+TraceThroughput (Ptr<FlowMonitor> monitor)
 {
-  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+  FlowMonitor::FlowStatsContainer stats = monitor->GetFlowStats ();
+  auto itr = stats.begin ();
+  Time curTime = Now ();
+  std::ofstream thr (dir + queue_disc_type + "/throughput.dat", std::ios::out | std::ios::app);
+  thr <<  curTime << " " << 8 * (itr->second.txBytes - prev) / (1000 * 1000 * (curTime.GetSeconds () - prevTime.GetSeconds ())) << std::endl;
+  prevTime = curTime;
+  prev = itr->second.txBytes;
+  Simulator::Schedule (Seconds (0.1), &TraceThroughput, monitor);
 }
+
+// Check the queue size
+void CheckQueueSize (Ptr<QueueDisc> qd)
+{
+  uint32_t qsize = qd->GetCurrentSize ().GetValue ();
+  Simulator::Schedule (Seconds (0.1), &CheckQueueSize, qd);
+  std::ofstream q (dir + queue_disc_type + "/queueSize.dat", std::ios::out | std::ios::app);
+  q << Simulator::Now ().GetSeconds () << " " << qsize << std::endl;
+  q.close ();
+}
+
+// // Trace congestion window
+// static void CwndTracer (Ptr<OutputStreamWrapper> stream, uint32_t oldval, uint32_t newval)
+// {
+//   *stream->GetStream () << Simulator::Now ().GetSeconds () << " " << newval / 1448.0 << std::endl;
+// }
+
+// void TraceCwnd (uint32_t nodeId, uint32_t socketId)
+// {
+//   AsciiTraceHelper ascii;
+//   Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream (dir + "/cwnd.dat");
+//   Config::ConnectWithoutContext ("/NodeList/" + std::to_string (nodeId) + "/$ns3::TcpL4Protocol/SocketList/" + std::to_string (socketId) + "/CongestionWindow", MakeBoundCallback (&CwndTracer, stream));
+// }
+//////////////////////////////////
+
+// static void
+// CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+// {
+//   NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+// }
+
 
 void
 TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
@@ -62,32 +108,48 @@ TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
   std::cout << "TcPacketsInQueue " << newValue << std::endl;
 }
 
+// Trace the number of High Priority packets in the Queue
 void
 TcHighPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
 {
-  // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  std::ofstream hppiq (dir + queue_disc_type + "/highPriorityPacketsInQueueTrace.dat", std::ios::out | std::ios::app);
+  hppiq << Simulator::Now ().GetSeconds () << " " << newValue << std::endl;
+  hppiq.close ();
+
   std::cout << "TcHighPriorityPacketsInQueue " << newValue << std::endl;
 }
 
+// Trace the number of Low Priority packets in the Queue
 void
 TcLowPriorityPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
 {
-  // std::cout << "TcPacketsInQueue " << oldValue << " to " << newValue << std::endl;
+  std::ofstream lppiq (dir + queue_disc_type + "/lowPriorityPacketsInQueueTrace.dat", std::ios::out | std::ios::app);
+  lppiq << Simulator::Now ().GetSeconds () << " " << newValue << std::endl;
+  lppiq.close ();
+
   std::cout << "TcLowPriorityPacketsInQueue " << newValue << std::endl;
 }
 
+// Trace the Threshold Value for High Priority packets in the Queue
 void
 QueueThresholdHighTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
 {
+  std::ofstream hpthr (dir + queue_disc_type + "/highPriorityQueueThreshold.dat", std::ios::out | std::ios::app);
+  hpthr << Simulator::Now ().GetSeconds () << " " << newValue << std::endl;
+  hpthr.close ();
+
   std::cout << "HighPriorityQueueThreshold " << newValue << " packets " << std::endl;
-  // std::cout << "QueueThreshold " << newValue << std::endl;
 }
 
+// Trace the Threshold Value for Low Priority packets in the Queue
 void
 QueueThresholdLowTrace (uint32_t oldValue, uint32_t newValue)  // added by me, to monitor Threshold
 {
+  std::ofstream lpthr (dir + queue_disc_type + "/lowPriorityQueueThreshold.dat", std::ios::out | std::ios::app);
+  lpthr << Simulator::Now ().GetSeconds () << " " << newValue << std::endl;
+  lpthr.close ();
+  
   std::cout << "LowPriorityQueueThreshold " << newValue << " packets " << std::endl;
-  // std::cout << "QueueThreshold " << newValue << std::endl;
 }
 
 void
@@ -106,10 +168,11 @@ int main (int argc, char *argv[])
 { 
   // Set up some default values for the simulation.
   double simulationTime = 50; //seconds
-  std::string applicationType = "standardClient"; // "standardClient"/"OnOff"/"customApplication"/"customOnOff"
+  std::string applicationType = "customApplication"; // "standardClient"/"OnOff"/"customApplication"/"customOnOff"
   std::string transportProt = "Udp";
   std::string socketType;
   std::string queue_capacity;
+  bool enablePcap = false;  // true/false
 
   CommandLine cmd (__FILE__);
   cmd.AddValue("Simulation Time", "The total time for the simulation to run", simulationTime);
@@ -197,10 +260,12 @@ int main (int argc, char *argv[])
   InternetStackHelper internet;
   internet.InstallAll ();
 
+  // std::string queue_disc_type = "DT_FifoQueueDisc_v02";
+
   TrafficControlHelper tch;
   // tch.SetRootQueueDisc ("ns3::RedQueueDisc", "MaxSize", StringValue ("5p"));
   // tch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue ("20p"));
-  tch.SetRootQueueDisc ("ns3::DT_FifoQueueDisc_v02", "MaxSize", StringValue (queue_capacity));
+  tch.SetRootQueueDisc ("ns3::" + queue_disc_type, "MaxSize", StringValue (queue_capacity));
                                                    
   QueueDiscContainer qdiscs = tch.Install (dev1);
 
@@ -214,6 +279,11 @@ int main (int argc, char *argv[])
   q->TraceConnectWithoutContext("EnqueueingThreshold_Low", MakeCallback (&QueueThresholdLowTrace)); // ### ADDED BY ME #####
   Config::ConnectWithoutContextFailSafe ("/NodeList/1/$ns3::TrafficControlLayer/RootQueueDiscList/0/SojournTime",
                                  MakeCallback (&SojournTimeTrace));                          
+
+
+  ////////////////////////////////////////////////////////
+  Simulator::ScheduleNow (&CheckQueueSize, q);
+  ////////////////////////////////////////////////////////
 
   // Ptr<NetDevice> nd = dev1.Get (1);  // original value
   Ptr<NetDevice> nd = dev1.Get (0);  //router side? fits queue-discs-benchmark example
@@ -274,7 +344,7 @@ int main (int argc, char *argv[])
   {
     // Create the Custom application to send TCP/UDP to the server
     Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (n0n1.Get (0), UdpSocketFactory::GetTypeId ());
-    ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
+    // ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
     
     InetSocketAddress socketAddressUp = InetSocketAddress (ipInterfs.GetAddress(1), servPort);
     Ptr<CustomOnOffApplication> customOnOffApp = CreateObject<CustomOnOffApplication> ();
@@ -286,6 +356,10 @@ int main (int argc, char *argv[])
     customOnOffApp->SetAttribute("DataRate", StringValue ("2Mb/s"));
     customOnOffApp->SetAttribute("EnableSeqTsSizeHeader", BooleanValue (false));
     customOnOffApp->SetStartTime (Seconds (1.0));
+    /////////////////////
+    // Hook trace source after application starts
+    // Simulator::Schedule (Seconds (1.0) + MilliSeconds (1), &TraceCwnd, 0, 0);
+    ////////////////////////////
     customOnOffApp->SetStopTime (Seconds(3.0));
     n0n1.Get (0)->AddApplication (customOnOffApp);
   }
@@ -294,18 +368,54 @@ int main (int argc, char *argv[])
   {
     // Create the Custom application to send TCP/UDP to the server
     Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (n0n1.Get (0), UdpSocketFactory::GetTypeId ());
-    ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
+    // ns3UdpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
     
     Ptr<TutorialApp> customApp = CreateObject<TutorialApp> ();
     InetSocketAddress socketAddressUp = InetSocketAddress (ipInterfs.GetAddress(1), servPort);  // sink IpV4 Address
     customApp->Setup (ns3UdpSocket, socketAddressUp, payloadSize, numOfPackets, DataRate ("1Mbps"));
-    n0n1.Get (0)->AddApplication (customApp);
     customApp->SetStartTime (Seconds (1.0));
+    /////////////////////
+    // Hook trace source after application starts
+    // Simulator::Schedule (Seconds (1.0) + MilliSeconds (1), &TraceCwnd, 0, 0);
+    ////////////////////////////
     customApp->SetStopTime (Seconds(3.0));
+    n0n1.Get (0)->AddApplication (customApp);
   }
   
   FlowMonitorHelper flowmon;
   Ptr<FlowMonitor> monitor = flowmon.InstallAll();
+
+  // Create a new directory to store the output of the program
+  std::string dirToSave = "mkdir -p " + dir + queue_disc_type;
+  if (system (dirToSave.c_str ()) == -1)
+    {
+      exit (1);
+    }  
+  
+  // the trace methods are from: examples/tcp/tcp-bbr-example.cc 
+  // The plotting scripts are provided in the following repository, if needed:
+  // https://github.com/mohittahiliani/BBR-Validation/
+  //
+  // Download 'PlotScripts' directory (which is inside ns-3 scripts directory)
+  // from the link given above and place it in the ns-3 root directory.
+  // Uncomment the following three lines to generate plots for Congestion
+  // Window, sender side throughput and queue occupancy on the bottleneck link.
+  //
+  // system (("cp -R PlotScripts/gnuplotScriptCwnd " + dir).c_str ());
+  // system (("cp -R PlotScripts/gnuplotScriptThroughput " + dir).c_str ());
+  ///////////////////////////////////////////////// need to do this only once, after this the plotting script is copied to the destination folder
+  // system (("cp -R PlotScripts/gnuplotScriptQueueSize " + dir).c_str ());
+  ///////////////////////////////////////////////////
+  
+  // Generate PCAP traces if it is enabled
+  if (enablePcap)
+    {
+      if (system ((dirToSave + "/pcap/").c_str ()) == -1)
+        {
+          exit (1);
+        }
+      p2p2.EnablePcapAll (dir + queue_disc_type + "/pcap/dt", true);
+    }
 
   Simulator::Stop (Seconds (simulationTime + 10));
   Simulator::Run ();
@@ -357,6 +467,10 @@ int main (int argc, char *argv[])
   std::cout << "  Average Goodput: " << thr << " Mbit/s" << std::endl;
   std::cout << std::endl << "*** TC Layer statistics ***" << std::endl;
   std::cout << q->GetStats () << std::endl;
+  
+  // command line needs to be in ./scratch/ inorder for the script to produce gnuplot correctly///
+  // system (("gnuplot " + dir + "gnuplotScriptTcHighPriorityPacketsInQueue").c_str ());
+
   Simulator::Destroy ();
   return 0;
 }

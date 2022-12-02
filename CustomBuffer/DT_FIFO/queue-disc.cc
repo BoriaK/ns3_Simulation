@@ -319,11 +319,11 @@ TypeId QueueDisc::GetTypeId (void)
                      MakeTraceSourceAccessor (&QueueDisc::m_nPackets),
                      "ns3::TracedValueCallback::Uint32")
     .AddTraceSource ("HighPriorityPacketsInQueue",
-                     "Number of packets currently stored in the queue disc",
+                     "Number of High Priority packets currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nPackets_h),
                      "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########
     .AddTraceSource ("LowPriorityPacketsInQueue",
-                     "Number of packets currently stored in the queue disc",
+                     "Number of Low Priority packets currently stored in the queue disc",
                      MakeTraceSourceAccessor (&QueueDisc::m_nPackets_l),
                      "ns3::TracedValueCallback::Uint32")  // ######## Added by me ##########                   
     .AddTraceSource ("BytesInQueue",
